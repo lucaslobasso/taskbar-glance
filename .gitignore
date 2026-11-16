@@ -1,0 +1,6 @@
+.claude/
+bin/
+obj/
+out/
+*.user
+__pycache__/
