@@ -70,7 +70,7 @@ static class Weather
             if (h.Time <= now || h.Time.Date != now.Date) continue;
             var s = SkyOf(h.Code);
             if (s == Sky.Thunder) thunder ??= h.Time;
-            else if (sky != Sky.Rain && (s == Sky.Rain || h.Pop >= Settings.RainWarnPercent)) rain ??= h.Time;
+            else if (sky is not (Sky.Rain or Sky.Snow) && s != Sky.Snow && (s == Sky.Rain || h.Pop >= Settings.RainWarnPercent)) rain ??= h.Time;
         }
         if (rain != null && thunder != null && thunder <= rain) rain = null; // the storm comes first: one message
         return rain == null && thunder == null ? null : new Warning(rain, thunder);
@@ -223,7 +223,7 @@ static class Weather
             {
                 if (!geocode || Geocode(res)) res.Forecast = Net.Get(ForecastUrl(res.Lat, res.Lon), out res.Status);
             }
-            catch { }
+            catch (Exception e) { Log.Write($"fetch error: {e.GetType().Name}: {e.Message}"); }
             result = res;
             PostMessageW(hwnd, Strip.WM_FETCHED, 0, 0);
         }, 256 * 1024) { IsBackground = true };
@@ -241,6 +241,7 @@ static class Weather
         var parts = res.City.Split(',', 2, StringSplitOptions.TrimEntries);
         var body = Net.Get($"https://geocoding-api.open-meteo.com/v1/search?name={Uri.EscapeDataString(parts[0])}&count=10&language=en&format=json", out res.Status);
         if (body == null) return false;
+        if (Log.Debug) Log.Write($"geocode: {body.Length} bytes");
         using var doc = JsonDocument.Parse(body);
         if (!doc.RootElement.TryGetProperty("results", out var list) || list.ValueKind != JsonValueKind.Array || list.GetArrayLength() == 0)
         {

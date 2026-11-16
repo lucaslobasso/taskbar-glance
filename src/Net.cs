@@ -21,8 +21,6 @@ static unsafe class Net
             if (c == 0) return null;
             r = WinHttpOpenRequest(c, "GET", path, null, null, 0, tls ? 0x00800000u /* WINHTTP_FLAG_SECURE */ : 0);
             if (r == 0) return null;
-            uint gzip = 3; // gzip | deflate
-            WinHttpSetOption(r, 118 /* WINHTTP_OPTION_DECOMPRESSION */, &gzip, 4);
             if (WinHttpSendRequest(r, 0, 0, 0, 0, 0, 0) == 0 || WinHttpReceiveResponse(r, 0) == 0) return null;
             uint code = 0, len = 4;
             WinHttpQueryHeaders(r, 19 | 0x20000000 /* status code, as a number */, 0, &code, ref len, 0);
@@ -32,14 +30,14 @@ static unsafe class Net
             byte* buf = stackalloc byte[8192];
             while (true)
             {
-                if (WinHttpReadData(r, buf, 8192, out uint n) == 0) return null;
+                if (WinHttpReadData(r, buf, 8192, out uint n) == 0) { Log.Write($"http read failed: {System.Runtime.InteropServices.Marshal.GetLastPInvokeError()} after {ms.Length} bytes"); return null; }
                 if (n == 0) break;
                 ms.Write(new ReadOnlySpan<byte>(buf, (int)n));
                 if (ms.Length > 4 * 1024 * 1024) return null; // nothing we ask for is this big
             }
             return ms.ToArray();
         }
-        catch { return null; }
+        catch (Exception e) { Log.Write($"http error: {e.GetType().Name}: {e.Message}"); return null; }
         finally
         {
             if (r != 0) WinHttpCloseHandle(r);

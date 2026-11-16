@@ -135,7 +135,6 @@ static unsafe class Native
     [DllImport("winhttp.dll", ExactSpelling = true, CharSet = CharSet.Unicode, SetLastError = true)] public static extern nint WinHttpConnect(nint session, string host, ushort port, uint reserved);
     [DllImport("winhttp.dll", ExactSpelling = true, CharSet = CharSet.Unicode, SetLastError = true)] public static extern nint WinHttpOpenRequest(nint connect, string verb, string path, string? version, string? referrer, nint accept, uint flags);
     [DllImport("winhttp.dll", ExactSpelling = true)] public static extern int WinHttpSetTimeouts(nint h, int resolve, int connect, int send, int receive);
-    [DllImport("winhttp.dll", ExactSpelling = true)] public static extern int WinHttpSetOption(nint h, uint option, void* value, uint size);
     [DllImport("winhttp.dll", ExactSpelling = true, SetLastError = true)] public static extern int WinHttpSendRequest(nint req, nint headers, uint headersLen, nint optional, uint optionalLen, uint totalLen, nuint context);
     [DllImport("winhttp.dll", ExactSpelling = true, SetLastError = true)] public static extern int WinHttpReceiveResponse(nint req, nint reserved);
     [DllImport("winhttp.dll", ExactSpelling = true)] public static extern int WinHttpQueryHeaders(nint req, uint level, nint name, void* buffer, ref uint size, nint index);
