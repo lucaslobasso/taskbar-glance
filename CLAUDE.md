@@ -27,6 +27,9 @@ P/Invoke in `Net.cs`). One UI thread; each fetch runs on a thread that lives for
 - Temperatures are stored in °C; °F is converted at display time, so changing units never needs a request.
 - `Shell.OpenFile` starts Notepad explicitly: the registered app for `.json` (here VS Code) opened the file behind
   everything else, so clicking "Set city" looked dead. `GLANCE_DEBUG_OPEN=settings` runs it at startup.
+- Next to Claude Taskbar: Glance owns the anchored edge. `Strip.NotifyNeighbors` posts the registered message
+  `TaskbarGlance.Moved` to the `ClaudeTaskbarStrip` window whenever our rect or visibility changes; Claude Taskbar
+  (1.2+) finds the `TaskbarGlanceStrip` window and docks outward of it.
 - `Gfx` blends into premultiplied alpha for the strip and onto an opaque background for the popup; "erase" differs.
 
 ## Next: Google Calendar (phase 2)

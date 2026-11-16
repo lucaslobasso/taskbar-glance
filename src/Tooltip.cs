@@ -83,7 +83,7 @@ static unsafe class Tooltip
                 : Weather.HasData ? "The saved forecast is too old; waiting for an update." : "Loading..."]));
             return;
         }
-        lines.Add(new Line(Kind.Header, [$"{place} · {Weather.Temp(c.Temp)} {Weather.Describe(c.Code)}"], Weather.SkyOf(c.Code), !c.Day));
+        lines.Add(new Line(Kind.Header, [place, $"{Weather.Temp(c.Temp)} {Weather.Describe(c.Code)}"], Weather.SkyOf(c.Code), !c.Day)); // only the city is bold
         if (Weather.Later() is { } w)
         {
             string text = w is { Rain: { } r, Thunder: { } t } ? $"Rain from {Weather.Clock(r)}, thunderstorm from {Weather.Clock(t)}"
@@ -142,7 +142,14 @@ static unsafe class Tooltip
             if (l.Kind == Kind.Row) continue;
             SelectObject(dc, l.Kind == Kind.Header ? fb : fn);
             GetTextExtentPoint32W(dc, l.Cells[0], l.Cells[0].Length, out var sz);
-            spanW = Math.Max(spanW, Math.Min(sz.Cx, (int)(520 * s)) + (l.Icon != null || l.Badge != 0 ? lead : 0));
+            int tw = sz.Cx;
+            if (l.Kind == Kind.Header && l.Cells.Length > 1)
+            {
+                SelectObject(dc, fn);
+                GetTextExtentPoint32W(dc, l.Cells[1], l.Cells[1].Length, out var sz2);
+                tw += (int)(7 * s) + sz2.Cx;
+            }
+            spanW = Math.Max(spanW, Math.Min(tw, (int)(520 * s)) + (l.Icon != null || l.Badge != 0 ? lead : 0));
         }
         SelectObject(dc, old); DeleteDC(dc); DeleteObject(fn); DeleteObject(fb);
 
@@ -231,6 +238,13 @@ static unsafe class Tooltip
                 SelectObject(mem, l.Kind == Kind.Header ? fb : fn);
                 SetTextColor(mem, l.Kind == Kind.Note ? dim : fg);
                 DrawTextW(mem, l.Cells[0], -1, &r, fmt);
+                if (l.Kind == Kind.Header && l.Cells.Length > 1)
+                {
+                    GetTextExtentPoint32W(mem, l.Cells[0], l.Cells[0].Length, out var w0);
+                    r.Left += w0.Cx + (int)(7 * s);
+                    SelectObject(mem, fn); // the temperature and the sky in the normal weight
+                    DrawTextW(mem, l.Cells[1], -1, &r, fmt);
+                }
             }
             y += lineH;
         }

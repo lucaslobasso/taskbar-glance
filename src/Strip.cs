@@ -12,6 +12,7 @@ static unsafe class Strip
 
     public static nint Hwnd;
     public static uint TaskbarCreatedMsg;
+    static uint movedMsg;                        // "TaskbarGlance.Moved": tells the Claude strip to re-dock
     public static bool Fullscreen;
     public static bool? LightOverride;           // --render
 
@@ -41,6 +42,7 @@ static unsafe class Strip
         Hwnd = CreateWindowExW(WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TOPMOST, "TaskbarGlanceStrip", "Taskbar Glance", WS_POPUP, 0, 0, 1, 1, 0, 0, inst, 0);
         if (Hwnd == 0) Log.Write($"CreateWindowEx failed: {Marshal.GetLastPInvokeError()}");
         TaskbarCreatedMsg = RegisterWindowMessageW("TaskbarCreated");
+        movedMsg = RegisterWindowMessageW("TaskbarGlance.Moved");
         hookFg = SetWinEventHook(EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND, 0, &OnWinEvent, 0, 0, WINEVENT_OUTOFCONTEXT | 0x2 /* SKIPOWNPROCESS */);
         AttachTaskbar();
         TrackForeground(GetForegroundWindow());
@@ -167,9 +169,17 @@ static unsafe class Strip
 
     public static void Hide()
     {
-        if (visible) { ShowWindow(Hwnd, SW_HIDE); visible = false; }
+        if (visible) { ShowWindow(Hwnd, SW_HIDE); visible = false; NotifyNeighbors(); }
         lastSig = "";
         Tooltip.Hide();
+    }
+
+    /// <summary>The weather sits at the anchored edge and the Claude Taskbar strip (if it runs) steps outward past it.
+    /// It finds our window by class name; this message tells it when our size or visibility changed.</summary>
+    static void NotifyNeighbors()
+    {
+        var claude = FindWindowW("ClaudeTaskbarStrip", null);
+        if (claude != 0 && movedMsg != 0) PostMessageW(claude, movedMsg, 0, 0);
     }
 
     // ---- drawing -----------------------------------------------------------------------------------------------
@@ -282,6 +292,7 @@ static unsafe class Strip
             if (UpdateLayeredWindow(Hwnd, 0, &dst, &size, dc, &src, 0, &blend, ULW_ALPHA) == 0) Log.Write($"UpdateLayeredWindow failed: {Marshal.GetLastPInvokeError()}");
             if (Log.Debug) Log.Write($"render: {W}x{H} at {stripX},{stripY} items={items.Count} taskbar={tb.Left},{tb.Top},{tb.Right},{tb.Bottom} tray={tr.Left} dpi={dpi}");
             regions = regs;
+            NotifyNeighbors();
         }
 
         SelectObject(dc, oldBmp); SelectObject(dc, oldFont);
@@ -427,6 +438,7 @@ static unsafe class Strip
                 case WM_SETTINGCHANGE:
                     Refresh(force: true); return 0;
                 case WM_DESTROY:
+                    visible = false; NotifyNeighbors();
                     if (hookLoc != 0) UnhookWinEvent(hookLoc);
                     if (hookFg != 0) UnhookWinEvent(hookFg);
                     if (hookFgLoc != 0) UnhookWinEvent(hookFgLoc);

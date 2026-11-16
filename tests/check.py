@@ -14,7 +14,7 @@ import render  # noqa: E402
 
 # (scene, extra arguments, lines that must appear, lines that must not)
 CASES = [
-    ('clear', [], ['strip: Clear day, "24°", badge none', 'Header: Buenos Aires · 24° Clear [Clear day]',
+    ('clear', [], ['strip: Clear day, "24°", badge none', 'Header: Buenos Aires | 24° Clear [Clear day]',
                    'Row: Today | 14:00 |', 'Row: Tomorrow | 08:00 |', 'Note: updated 5 min ago'], ['Warn:', '| 08:00 | 15° | 5% [Clear day]\nRow: Today']),
     ('clear', ['unit=F'], ['strip: Clear day, "75°", badge none'], []),
     ('rain-later', [], ['strip: PartlyCloudy day, "23°", badge rain', 'Warn: Rain from 17:00 [badge rain]',
