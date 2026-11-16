@@ -190,7 +190,7 @@ static unsafe class Strip
         int H = tb.Height;
         int pad = R(8 * s), iconD = R(22 * s), gap = R(5 * s), groupGap = R(14 * s), badgeD = R(13 * s), badgeGap = R(5 * s);
 
-        var font = CreateFontW(-R(13 * s), 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, 4 /* ANTIALIASED_QUALITY: grayscale coverage */, 0, "Segoe UI");
+        var font = CreateFontW(-R(12 * s), 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, 4 /* ANTIALIASED_QUALITY: grayscale coverage */, 0, "Segoe UI");
         var screen = GetDC(0);
         var dc = CreateCompatibleDC(screen);
         ReleaseDC(0, screen);
