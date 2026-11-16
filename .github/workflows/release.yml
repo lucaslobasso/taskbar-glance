@@ -1,0 +1,41 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 11.0.x
+      - name: Build (Native AOT)
+        run: dotnet publish src/TaskbarGlance.csproj -c Release -o out --nologo
+      - name: Checksum
+        run: |
+          $hash = (Get-FileHash out/TaskbarGlance.exe -Algorithm SHA256).Hash
+          "$hash  TaskbarGlance.exe" | Set-Content -NoNewline out/TaskbarGlance.exe.sha256
+      - name: Notes from CHANGELOG
+        run: |
+          $version = '${{ github.ref_name }}'.TrimStart('v')
+          $text = Get-Content CHANGELOG.md -Raw
+          $m = [regex]::Match($text, "(?s)## \[$([regex]::Escape($version))\][^\n]*\n(.*?)(?=\n## \[|\n\[[^\]]+\]: |\z)")
+          $notes = if ($m.Success) { $m.Groups[1].Value.Trim() } else { "Taskbar Glance $version" }
+          $notes += "`n`n**Install:** ``irm https://raw.githubusercontent.com/lucaslobasso/taskbar-glance/main/bootstrap.ps1 | iex``"
+          Set-Content notes.md $notes
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $releaseArgs = @('${{ github.ref_name }}', 'out/TaskbarGlance.exe', 'out/TaskbarGlance.exe.sha256', '--title', '${{ github.ref_name }}', '--notes-file', 'notes.md')
+          if ('${{ github.ref_name }}' -match '-') { $releaseArgs += '--prerelease' } # an empty '' argument would be read as a file
+          gh release create @releaseArgs

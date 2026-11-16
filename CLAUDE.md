@@ -8,7 +8,9 @@ P/Invoke in `Net.cs`). One UI thread; each fetch runs on a thread that lives for
 ## Build / run
 - `dotnet publish src/TaskbarGlance.csproj -c Release -o out` (needs VS "Desktop development with C++" for the linker).
 - `.\install.ps1 [-City "Name"]` builds + installs to `%LOCALAPPDATA%\TaskbarGlance` + HKCU Run + starts it.
-  Keep the scripts PowerShell 5.1-compatible.
+  `bootstrap.ps1` is the one-line install of a release; both share `install-lib.ps1`. Keep them PowerShell 5.1-compatible.
+- Release: bump `<Version>` in the csproj, add a CHANGELOG entry, merge, push tag `vX.Y.Z` (release.yml builds the exe +
+  .sha256 and publishes the release that bootstrap.ps1 downloads; the notes come from the CHANGELOG section).
 - `python tests/check.py` checks what the strip and popup say for made-up forecasts; `python docs/render.py` redraws
   the README pictures. Both use the hidden `--render strip|tip|text` mode (no window, no settings, no network) and the
   scenarios in `docs/render.py`.

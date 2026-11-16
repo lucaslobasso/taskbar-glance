@@ -25,7 +25,7 @@ jobs:
           python docs/render.py
       - name: Install scripts parse
         run: |
-          foreach ($f in 'install.ps1', 'uninstall.ps1') {
+          foreach ($f in 'install.ps1', 'uninstall.ps1', 'bootstrap.ps1', 'install-lib.ps1') {
             $errors = $null
             [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $f), [ref]$null, [ref]$errors) | Out-Null
             if ($errors) { $errors | Format-List; exit 1 }
