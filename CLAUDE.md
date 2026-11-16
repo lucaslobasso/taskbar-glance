@@ -25,6 +25,8 @@ P/Invoke in `Net.cs`). One UI thread; each fetch runs on a thread that lives for
 - Do not set `WINHTTP_OPTION_DECOMPRESSION`: with it `WinHttpReadData` failed with E_ABORT on Open-Meteo's answers.
 - All times are the city's local time (`utc_offset_seconds` from Open-Meteo), not the PC's.
 - Temperatures are stored in °C; °F is converted at display time, so changing units never needs a request.
+- `Shell.OpenFile` starts Notepad explicitly: the registered app for `.json` (here VS Code) opened the file behind
+  everything else, so clicking "Set city" looked dead. `GLANCE_DEBUG_OPEN=settings` runs it at startup.
 - `Gfx` blends into premultiplied alpha for the strip and onto an opaque background for the popup; "erase" differs.
 
 ## Next: Google Calendar (phase 2)

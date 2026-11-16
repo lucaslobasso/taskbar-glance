@@ -30,6 +30,7 @@ static unsafe class Program
         Weather.Schedule();
         ScheduleTrim();
         if (Environment.GetEnvironmentVariable("GLANCE_DEBUG_TIP") is { Length: > 0 } tip) Strip.DebugTip(tip);
+        if (Environment.GetEnvironmentVariable("GLANCE_DEBUG_OPEN") == "settings") Shell.OpenFile(Paths.SettingsFile);
 
         while (true)
         {

@@ -39,8 +39,12 @@ static class Shell
         }
     }
 
+    /// <summary>Opens the settings file in Notepad. The default app for .json is often an editor that opens it in an
+    /// already running window behind everything else (it looked like nothing happened), or nothing at all.</summary>
     public static void OpenFile(string path)
     {
-        if (ShellExecuteW(0, "open", path, null, null, 1) <= 32) ShellExecuteW(0, "open", "notepad.exe", $"\"{path}\"", null, 1);
+        var r = ShellExecuteW(0, "open", "notepad.exe", $"\"{path}\"", null, 1);
+        if (r <= 32) r = ShellExecuteW(0, "open", path, null, null, 1);
+        if (r <= 32 || Log.Debug) Log.Write($"open {path}: {r}");
     }
 }
