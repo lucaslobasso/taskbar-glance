@@ -9,6 +9,7 @@ static unsafe class Strip
 {
     public const uint WM_FETCHED = WM_APP + 1;   // posted by the weather's fetch thread
     public const uint WM_CALFETCHED = WM_APP + 2; // posted by the calendar's fetch thread
+    public const uint WM_UPDATE = WM_APP + 3;    // posted by the update check or download
     public const int WeatherKind = 0, CalendarKind = 1; // segment kinds
 
     public static nint Hwnd;
@@ -362,7 +363,7 @@ static unsafe class Strip
 
     static void Menu()
     {
-        const int Open = 1, Refresh_ = 2, OpenCal = 3, SetUpCal = 4, Celsius = 10, Fahrenheit = 11, Auto = 40, Edit = 50, PosLeft = 60, PosRight = 61, Exit = 99;
+        const int Open = 1, Refresh_ = 2, OpenCal = 3, SetUpCal = 4, CheckUpdate = 5, Celsius = 10, Fahrenheit = 11, Auto = 40, Edit = 50, PosLeft = 60, PosRight = 61, Exit = 99;
         var pos = CreatePopupMenu();
         AppendMenuW(pos, Settings.Left ? MF_CHECKED : 0, PosLeft, "Left side of the taskbar");
         AppendMenuW(pos, Settings.Left ? 0 : MF_CHECKED, PosRight, "Right side, next to the tray");
@@ -380,6 +381,7 @@ static unsafe class Strip
         AppendMenuW(m, Shell.Autostart ? MF_CHECKED : 0, Auto, "Start with Windows");
         AppendMenuW(m, 0, Edit, "Open settings file");
         AppendMenuW(m, MF_SEPARATOR, 0, null);
+        AppendMenuW(m, Update.Busy || Weather.Offline ? MF_GRAYED : 0, CheckUpdate, Update.Busy ? "Checking for updates..." : $"Check for updates (you have {Update.Current})");
         AppendMenuW(m, 0, Exit, "Exit");
         GetCursorPos(out var pt);
         SetForegroundWindow(Hwnd);
@@ -391,6 +393,7 @@ static unsafe class Strip
             case Open: Shell.OpenWeather(); break;
             case Refresh_: Weather.Fetch(); Calendar.Fetch(); break;
             case OpenCal: Shell.OpenCalendar(); break;
+            case CheckUpdate: Update.Check(); break;
             case SetUpCal: Shell.OpenUrl("https://github.com/lucaslobasso/taskbar-glance#calendar"); break;
             case Celsius: Settings.Fahrenheit = false; Settings.Save(); Refresh(); break;
             case Fahrenheit: Settings.Fahrenheit = true; Settings.Save(); Refresh(); break;
@@ -444,6 +447,7 @@ static unsafe class Strip
                     Tooltip.RefreshIfOpen();
                     Program.ScheduleTrim();
                     return 0;
+                case WM_UPDATE: Update.OnDone(); return 0;
                 case WM_POWERBROADCAST:
                     if (w is 0x12 or 0x7) { Weather.OnResume(); Calendar.OnResume(); Refresh(); } // resumed from sleep
                     return 1;

@@ -39,6 +39,8 @@ static unsafe class Native
         WM_DISPLAYCHANGE = 0x7E, WM_NCHITTEST = 0x84, WM_TIMER = 0x113, WM_MOUSEMOVE = 0x200, WM_LBUTTONUP = 0x202, WM_RBUTTONUP = 0x205,
         WM_MOUSELEAVE = 0x2A3, WM_DPICHANGED = 0x2E0, WM_APP = 0x8000, WM_USER = 0x400, WM_NULL = 0, WM_ERASEBKGND = 0x14, WM_TIMECHANGE = 0x1E, WM_POWERBROADCAST = 0x218;
     public const int MA_NOACTIVATE = 3;
+    public const uint MB_YESNO = 0x4, MB_ICONWARNING = 0x30, MB_ICONINFORMATION = 0x40, MB_SETFOREGROUND = 0x10000, MB_TOPMOST = 0x40000;
+    public const int IDYES = 6;
     public const int SW_HIDE = 0, SW_SHOWNOACTIVATE = 4, SW_RESTORE = 9, SW_SHOWNA = 8;
     public const uint SWP_NOSIZE = 0x1, SWP_NOMOVE = 0x2, SWP_NOZORDER = 0x4, SWP_NOACTIVATE = 0x10, SWP_SHOWWINDOW = 0x40;
     public const int GWLP_HWNDPARENT = -8;
@@ -103,6 +105,7 @@ static unsafe class Native
     [DllImport("user32.dll", ExactSpelling = true)] public static extern nint LoadCursorW(nint inst, nint id);
     [DllImport("user32.dll", ExactSpelling = true, CharSet = CharSet.Unicode)] public static extern int DrawTextW(nint dc, string text, int len, RECT* r, uint fmt);
     [DllImport("user32.dll", ExactSpelling = true)] public static extern int FillRect(nint dc, RECT* r, nint brush);
+    [DllImport("user32.dll", ExactSpelling = true, CharSet = CharSet.Unicode)] public static extern int MessageBoxW(nint owner, string text, string caption, uint type);
 
     // gdi32
     [DllImport("gdi32.dll", ExactSpelling = true)] public static extern nint CreateCompatibleDC(nint dc);

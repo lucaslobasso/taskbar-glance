@@ -10,14 +10,15 @@ static unsafe class Program
 {
     public const nuint T_DEBOUNCE = 1, T_REFRESH = 2, T_HOVER = 4, T_TIP = 5, T_REDOCK = 6, T_TRIM = 8, T_FSCHECK = 9, T_FSCHECK2 = 10, T_CALREFRESH = 11, T_CALTICK = 12;
 
-    static nint watch;
+    static nint watch, instance;
 
     static int Main(string[] args)
     {
         if (args is ["--render", _, _, ..]) { SetProcessDpiAwarenessContext(-4); return Render(args); } // pictures and tests, no window
         // a copy pointed at another folder (GLANCE_DIR) may run next to the installed one
-        CreateMutexW(0, 0, @"Local\TaskbarGlance." + (Environment.GetEnvironmentVariable("GLANCE_DIR") is { Length: > 0 } ? "Custom" : "Singleton"));
+        instance = CreateMutexW(0, 0, @"Local\TaskbarGlance." + (Environment.GetEnvironmentVariable("GLANCE_DIR") is { Length: > 0 } ? "Custom" : "Singleton"));
         if (GetLastError() == 183 /* ERROR_ALREADY_EXISTS */) return 0;
+        Update.Cleanup();
         SetProcessDpiAwarenessContext(-4); // per-monitor v2 (also in the manifest)
 
         Settings.Load();
@@ -33,6 +34,7 @@ static unsafe class Program
         ScheduleTrim();
         if (Environment.GetEnvironmentVariable("GLANCE_DEBUG_TIP") is { Length: > 0 } tip) Strip.DebugTip(tip);
         if (Environment.GetEnvironmentVariable("GLANCE_DEBUG_OPEN") == "settings") Shell.OpenFile(Paths.SettingsFile);
+        if (Environment.GetEnvironmentVariable("GLANCE_DEBUG_OPEN") == "update") Update.Check();
 
         while (true)
         {
@@ -55,6 +57,13 @@ static unsafe class Program
             }
             else ArmWatch(); // WAIT_FAILED: the handle went bad
         }
+    }
+
+    /// <summary>Lets the next copy start while this one is still closing (the restart after an update).</summary>
+    public static void ReleaseInstance()
+    {
+        if (instance != 0) CloseHandle(instance);
+        instance = 0;
     }
 
     /// <summary>Watches our own folder, so an edit of glance.json applies as soon as it is saved.</summary>
@@ -97,6 +106,7 @@ static unsafe class Program
             case T_TRIM:
                 KillTimer(Strip.Hwnd, T_TRIM);
                 if (Tooltip.Visible) break;
+                Update.Cleanup(); // the exe an update replaced was still closing at our start
                 // aggressive: also gives the freed heap back (a calendar download can take a few MB for a moment)
                 System.Runtime.GCSettings.LargeObjectHeapCompactionMode = System.Runtime.GCLargeObjectHeapCompactionMode.CompactOnce;
                 GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, blocking: true, compacting: true);

@@ -22,7 +22,7 @@ The weather and your next calendar event in the Windows 11 taskbar: the temperat
 - **The strip:** a sky icon (sun, moon, partly cloudy, cloud, fog, rain, snow, thunder; day or night) and the temperature, in °C or °F.
 - **The warning mark:** an amber `!` when rain is announced for later today, a red one for a thunderstorm. It is not shown while it already rains, or snows.
 - **Hover:** the current weather, what is coming, and the forecast at 08:00, 14:00 and 20:00 (you choose the hours) for the rest of today and tomorrow, with the chance of rain.
-- **Click:** opens the forecast page you prefer (`weatherUrl`), or a web search for your city's weather. **Right-click** for refresh, °C / °F, left or right side, start with Windows.
+- **Click:** opens the forecast page you prefer (`weatherUrl`), or a web search for your city's weather. **Right-click** for refresh, °C / °F, left or right side, start with Windows, check for updates.
 - **The next event** (once you [add a calendar](#calendar)): `15:30 · Dentist`, `Tomorrow · Ana's birthday`, `Thu 10:00 · Standup`, or `Now · Standup` while it is going on. Hover for this month, with today and the days that have events marked, and the events of the next 14 days. Click opens Google Calendar.
 - **Next to [Claude Taskbar](https://github.com/lucaslobasso/claude-taskbar):** Glance keeps the anchored edge and Claude Taskbar (1.2 and newer) docks just outside it, so they never overlap.
 
@@ -31,7 +31,7 @@ The weather and your next calendar event in the Windows 11 taskbar: the temperat
 - **Tiny.** A ~1.9 MB native exe (.NET Native AOT, raw Win32, no UI framework): about 5 MB private memory, under 1 MB working set when idle.
 - **Idle means idle.** It sleeps until a timer, the mouse or a settings change wakes it. There is no polling loop: one request every 30 minutes for the weather, one every 15 for each calendar, and one timer set for the moment the next event starts.
 - **Gets out of the way.** It hides while a full-screen app is in front.
-- **No account, no API key.** Weather data comes from [Open-Meteo](https://open-meteo.com). The only things that leave your PC are the city name (once, to find its coordinates) and those coordinates. The calendar is read straight from the address you give it; nothing about it goes anywhere else.
+- **No account, no API key.** Weather data comes from [Open-Meteo](https://open-meteo.com). The only things that leave your PC are the city name (once, to find its coordinates) and those coordinates. The calendar is read straight from the address you give it; nothing about it goes anywhere else. GitHub is asked for a newer version only when you click **Check for updates**.
 
 ## Requirements
 
@@ -134,7 +134,9 @@ The app adds a `location` block with the coordinates it found for the city. Edit
 
 ## Update
 
-Run the one-line install again; it replaces the exe and keeps your settings. From a clone: `git pull`, then `.\install.ps1`. See [CHANGELOG.md](CHANGELOG.md).
+Right-click the strip → **Check for updates**. If there is a newer release it asks, downloads it, checks it against the release's SHA-256, replaces the exe and restarts; your settings stay. It never checks on its own.
+
+Versions before 1.2 have no such entry: run the one-line install again (it also replaces the exe and keeps your settings). From a clone: `git pull`, then `.\install.ps1`. See [CHANGELOG.md](CHANGELOG.md).
 
 ## How it works
 
@@ -179,7 +181,7 @@ python docs/render.py                                       # redraw the README 
 
 - Test with a separate folder, never your real settings: `GLANCE_DIR=<folder>` moves settings, saved forecast and log, and such a copy runs next to the installed one. `GLANCE_OFFLINE=1` never fetches (and reads the `.ics` files in that folder as the calendars). See [CLAUDE.md](CLAUDE.md).
 - `TaskbarGlance.exe --render strip|tip|caltip|text out data=forecast.json ics=calendar.ics now=2026-11-16T15:10 [light] [unit=F] ...` draws or describes the strip and popups for made-up data without opening a window; `docs/render.py` turns that into the PNGs above.
-- A tag `v*` builds the exe in CI and publishes a GitHub release with its SHA-256, which the one-line install picks up.
+- Releases publish themselves: when `main` carries a `<Version>` (in `src/TaskbarGlance.csproj`) that has no release yet, CI builds the exe and publishes it with its SHA-256, which the one-line install and **Check for updates** pick up. So a pull request that bumps the version and adds its `CHANGELOG.md` section is a release once merged; any other merge publishes nothing.
 
 ## License
 

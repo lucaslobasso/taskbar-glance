@@ -2,6 +2,16 @@
 
 All notable changes to this project. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.2.0] - 2026-11-17
+
+Updates without the command line.
+
+### Added
+- **Check for updates** in the right-click menu, which also shows the version you have. If a newer release exists it asks, downloads the exe, checks it against the release's SHA-256, swaps it in and restarts the strip; settings are kept. It runs only when you click it: there is no background check.
+
+### Changed
+- A release is published automatically when a merge to `main` carries a version that has no release yet; pushing a tag by hand is no longer needed.
+
 ## [1.1.0] - 2026-11-16
 
 The next calendar event, next to the weather.
