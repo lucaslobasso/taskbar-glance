@@ -1,4 +1,4 @@
-// Taskbar Glance: the weather (and later the next calendar event) docked in the Windows 11 taskbar.
+// Taskbar Glance: the weather and the next calendar event docked in the Windows 11 taskbar.
 // One UI thread, event-driven: it sleeps in MsgWaitForMultipleObjectsEx until its folder changes, the mouse touches
 // the strip, or a one-shot timer fires. Network: one small request per refresh, on a thread that lives for that request.
 using System.Globalization;
@@ -8,7 +8,7 @@ namespace TaskbarGlance;
 
 static unsafe class Program
 {
-    public const nuint T_DEBOUNCE = 1, T_REFRESH = 2, T_HOVER = 4, T_TIP = 5, T_REDOCK = 6, T_TRIM = 8, T_FSCHECK = 9, T_FSCHECK2 = 10;
+    public const nuint T_DEBOUNCE = 1, T_REFRESH = 2, T_HOVER = 4, T_TIP = 5, T_REDOCK = 6, T_TRIM = 8, T_FSCHECK = 9, T_FSCHECK2 = 10, T_CALREFRESH = 11, T_CALTICK = 12;
 
     static nint watch;
 
@@ -22,12 +22,14 @@ static unsafe class Program
 
         Settings.Load();
         Weather.LoadCache();
+        Calendar.LoadCache();
         Strip.Create();
         Strip.Fullscreen = Strip.IsFullscreen();
         Strip.Refresh(force: true);
-        Log.Write($"start: hwnd={Strip.Hwnd} city=\"{Settings.City}\" data={Weather.HasData} fullscreen={Strip.Fullscreen}");
+        Log.Write($"start: hwnd={Strip.Hwnd} city=\"{Settings.City}\" data={Weather.HasData} calendars={Settings.Calendars.Length} fullscreen={Strip.Fullscreen}");
         ArmWatch();
         Weather.Schedule();
+        Calendar.Schedule();
         ScheduleTrim();
         if (Environment.GetEnvironmentVariable("GLANCE_DEBUG_TIP") is { Length: > 0 } tip) Strip.DebugTip(tip);
         if (Environment.GetEnvironmentVariable("GLANCE_DEBUG_OPEN") == "settings") Shell.OpenFile(Paths.SettingsFile);
@@ -69,8 +71,9 @@ static unsafe class Program
     {
         bool settings = Settings.Load();
         bool changed = settings;
-        if (Weather.Offline) changed |= Weather.LoadCache();
-        if (settings) Weather.Schedule(); // a new city or refresh time
+        if (Weather.Offline) { changed |= Weather.LoadCache(); changed |= Calendar.LoadCache(); }
+        if (settings) { Weather.Schedule(); Calendar.Schedule(settingsChanged: true); } // a new city, calendar or refresh time
+        else if (changed) Calendar.ScheduleTick();
         if (changed) { Strip.Refresh(force: true); Tooltip.RefreshIfOpen(); }
         ScheduleTrim();
     }
@@ -84,6 +87,8 @@ static unsafe class Program
         {
             case T_DEBOUNCE: KillTimer(Strip.Hwnd, T_DEBOUNCE); Reload(); break;
             case T_REFRESH: Weather.Fetch(); break; // stops the timer; the answer sets the next one
+            case T_CALREFRESH: Calendar.Fetch(); break; // the same
+            case T_CALTICK: Strip.Refresh(); Tooltip.RefreshIfOpen(); Calendar.ScheduleTick(); break; // an event started or ended, or the day turned
             case T_HOVER: Strip.ShowHoverTip(); break;
             case T_TIP: Tooltip.RefreshIfOpen(); break;
             case T_FSCHECK: KillTimer(Strip.Hwnd, T_FSCHECK); Strip.RecheckFullscreen(); break;
@@ -92,7 +97,9 @@ static unsafe class Program
             case T_TRIM:
                 KillTimer(Strip.Hwnd, T_TRIM);
                 if (Tooltip.Visible) break;
-                GC.Collect();
+                // aggressive: also gives the freed heap back (a calendar download can take a few MB for a moment)
+                System.Runtime.GCSettings.LargeObjectHeapCompactionMode = System.Runtime.GCLargeObjectHeapCompactionMode.CompactOnce;
+                GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, blocking: true, compacting: true);
                 SetProcessWorkingSetSize(GetCurrentProcess(), -1, -1);
                 break;
         }
@@ -100,11 +107,13 @@ static unsafe class Program
 
     /// <summary>Hidden helper for the README pictures and the tests: draws or describes the strip and its popup for
     /// made-up data, with no window, no settings file and no network.
-    /// TaskbarGlance.exe --render strip|tip|text out [data=forecast.json] [now=2026-11-16T15:10] [age=12] [city=Name]
-    /// [nocity] [notfound] [unit=F] [light] [warn=50] [hours=8,14,20] [dpi=144] [height=48]</summary>
+    /// TaskbarGlance.exe --render strip|tip|caltip|text out [data=forecast.json] [now=2026-11-16T15:10] [age=12] [city=Name]
+    /// [nocity] [notfound] [unit=F] [light] [warn=50] [hours=8,14,20] [dpi=144] [height=48]
+    /// [ics=a.ics,b.ics] [cal=loading|failed] [tz=-180] [week=sunday] [days=14] [rows=8] [title=24] [noweather]</summary>
     static int Render(string[] args)
     {
-        var set = args.Skip(3).Select(a => a.Split('=', 2)).ToDictionary(a => a[0], a => a.Length > 1 ? a[1] : "", StringComparer.OrdinalIgnoreCase);
+        var set = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var a in args.Skip(3).Select(a => a.Split('=', 2))) set[a[0]] = a.Length > 1 ? a[1] : ""; // a later one wins
         string Get(string k, string d) => set.TryGetValue(k, out var v) ? v : d;
         var inv = CultureInfo.InvariantCulture;
 
@@ -119,12 +128,27 @@ static unsafe class Program
         Weather.AgeOverride = TimeSpan.FromMinutes(double.Parse(Get("age", "5"), inv));
         if (Get("data", "") is { Length: > 0 } data && !Weather.Parse(File.ReadAllBytes(data))) return 2;
 
+        // the calendar: "now" is also the PC's time, in a zone tz minutes east of UTC
+        Settings.ShowWeather = !set.ContainsKey("noweather");
+        Settings.CalendarDays = int.Parse(Get("days", "14"), inv);
+        Settings.CalendarRows = int.Parse(Get("rows", "8"), inv);
+        Settings.CalendarTitleLength = int.Parse(Get("title", "24"), inv);
+        Calendar.NowOverride = Weather.NowOverride;
+        Calendar.ZoneOverride = TimeSpan.FromMinutes(double.Parse(Get("tz", "0"), inv));
+        Calendar.WeekStartOverride = Get("week", "monday").Equals("sunday", StringComparison.OrdinalIgnoreCase) ? DayOfWeek.Sunday : DayOfWeek.Monday;
+        if (Get("ics", "") is { Length: > 0 } ics) { if (!Calendar.Pretend(ics.Split(','))) return 2; }
+        else if (Get("cal", "") is "loading" or "failed") Calendar.PretendEmpty(Get("cal", "") == "failed");
+
         uint dpi = uint.Parse(Get("dpi", "144"), inv);
         switch (args[1])
         {
             case "strip": return Strip.RenderToFile(args[2], dpi, int.Parse(Get("height", "48"), inv));
-            case "tip": return Tooltip.RenderToFile(args[2], dpi);
-            case "text": File.WriteAllText(args[2], $"strip: {Strip.Describe()}\n{Tooltip.Describe()}\n"); return 0;
+            case "tip": return Tooltip.RenderToFile(args[2], dpi, Strip.WeatherKind);
+            case "caltip": return Tooltip.RenderToFile(args[2], dpi, Strip.CalendarKind);
+            case "text":
+                File.WriteAllText(args[2], $"strip: {Strip.Describe()}\n{Tooltip.Describe(Strip.WeatherKind)}\n" +
+                    (Calendar.Configured ? $"calendar:\n{Tooltip.Describe(Strip.CalendarKind)}\n" : ""));
+                return 0;
             default: return 3;
         }
     }

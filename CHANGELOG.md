@@ -2,6 +2,22 @@
 
 All notable changes to this project. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.1.0] - 2026-11-16
+
+The next calendar event, next to the weather.
+
+### Added
+- A calendar segment with the next event: `15:30 · Dentist`, `Tomorrow · Ana's birthday`, `Thu 10:00 · Standup`, `Now · Standup`. It appears once `calendars` in `glance.json` has an iCal address, such as Google Calendar's "Secret address in iCal format" (no account, no sign-in); several calendars are merged.
+- Hover popup: this month as a grid with today and the days that have events marked, then the events of the next `calendarDays` (14) days, `calendarRows` (8) at most. Click opens Google Calendar, or `calendarUrl`.
+- An own iCal reader: repeating events (daily, weekly, monthly, yearly; interval, count, until, weekday, day of the month, month and position rules), skipped, moved and cancelled occurrences, all-day and multi-day events, and time zones from the file itself or from Windows.
+- One download per calendar every `calendarRefreshMinutes` (15), kept for the next start in `calendar.json` (titles and times only), with the same retries as the weather. The text changes on its own at the moment an event starts or ends, without polling.
+- Settings `showCalendar`, `calendars`, `calendarUrl`, `calendarDays`, `calendarRows`, `calendarTitleLength`, `calendarRefreshMinutes`; "Open calendar" in the right-click menu, where "Refresh now" refreshes both.
+- `--render` draws the calendar too (`caltip`, `ics=`, `tz=`...), with made-up calendars in `docs/render.py` and 27 new checks in `tests/check.py`.
+
+### Changed
+- Memory is handed back more thoroughly a few seconds after each refresh, so the calendar adds nothing to the idle footprint (about 5 MB private).
+- With `showWeather: false` the right-click menu no longer offers "Open forecast".
+
 ## [1.0.0] - 2026-11-16
 
 First release: the weather in the Windows 11 taskbar.

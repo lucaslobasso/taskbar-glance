@@ -7,7 +7,7 @@ namespace TaskbarGlance;
 static unsafe class Net
 {
     /// <summary>Returns the body of a 200 answer, or null on any failure.</summary>
-    public static byte[]? Get(string url, out int status)
+    public static byte[]? Get(string url, out int status, int maxBytes = 4 * 1024 * 1024)
     {
         status = 0;
         if (!Split(url, out bool tls, out var host, out ushort port, out var path)) return null;
@@ -33,7 +33,7 @@ static unsafe class Net
                 if (WinHttpReadData(r, buf, 8192, out uint n) == 0) { Log.Write($"http read failed: {System.Runtime.InteropServices.Marshal.GetLastPInvokeError()} after {ms.Length} bytes"); return null; }
                 if (n == 0) break;
                 ms.Write(new ReadOnlySpan<byte>(buf, (int)n));
-                if (ms.Length > 4 * 1024 * 1024) return null; // nothing we ask for is this big
+                if (ms.Length > maxBytes) return null; // nothing we ask for is this big
             }
             return ms.ToArray();
         }

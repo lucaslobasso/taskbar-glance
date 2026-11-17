@@ -1,5 +1,7 @@
-// Hover popup above the strip: now, what is coming later today, and the forecast at the configured hours for the
-// rest of today and tomorrow. Click-through, never activates.
+// Hover popup above the strip. Weather: now, what is coming later today, and the forecast at the configured hours
+// for the rest of today and tomorrow. Calendar: this month with today and the days that have events marked, then the
+// coming events. Click-through, never activates.
+using System.Globalization;
 using System.Runtime.InteropServices;
 using static TaskbarGlance.Native;
 
@@ -7,17 +9,20 @@ namespace TaskbarGlance;
 
 static unsafe class Tooltip
 {
-    enum Kind { Header, Row, Note, Warn }
-    /// <summary>Row cells: day, time, temperature, chance of rain. Badge: 1 = rain, 2 = thunder (Warn lines).</summary>
-    record struct Line(Kind Kind, string[] Cells, Sky? Icon = null, bool Night = false, int Badge = 0, bool Wet = false);
+    enum Kind { Header, Row, Note, Warn, WeekHead, Week, Event, Gap }
+    /// <summary>Row cells: day, time, temperature, chance of rain. Badge: 1 = rain, 2 = thunder (Warn lines).
+    /// Week cells: the seven day numbers ("" outside the month); Today = that column, Marks = columns with events.
+    /// Event cells: day, time, title.</summary>
+    record struct Line(Kind Kind, string[] Cells, Sky? Icon = null, bool Night = false, int Badge = 0, bool Wet = false, int Today = -1, int Marks = 0);
 
     static nint hwnd;
     static List<Line> lines = [];
     static int showing = -1;
     static int anchorX, anchorTop;
     static uint dpi = 96;
-    static int[] colW = [];
+    static int[] colW = [], evW = [];
     static int lineH, pad, gap, iconW, lead, width, height;
+    static float cellW, gridX;
     static bool hasIcons;
     public static bool Visible { get; private set; }
 
@@ -38,6 +43,7 @@ static unsafe class Tooltip
         EnsureWindow();
         showing = kind; anchorX = centerX; anchorTop = stripTop; dpi = d;
         Build();
+        if (lines.Count == 0) { Hide(); return; }
         Place();
         SetTimer(Strip.Hwnd, Program.T_TIP, 60_000, 0); // keeps "updated n min ago" true while it stays open
     }
@@ -62,6 +68,7 @@ static unsafe class Tooltip
     static void Build()
     {
         lines = [];
+        if (showing == Strip.CalendarKind) { BuildCalendar(); return; }
         if (showing != Strip.WeatherKind) return;
         if (Settings.City.Length == 0)
         {
@@ -100,12 +107,61 @@ static unsafe class Tooltip
         lines.Add(new Line(Kind.Note, [Weather.AgeText() + (Weather.Failures > 0 ? " · can't reach the weather service" : "")]));
     }
 
+    static readonly string[] dayNames = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+
+    /// <summary>This month as a grid, then the agenda.</summary>
+    static void BuildCalendar()
+    {
+        if (!Calendar.Configured) return;
+        var inv = CultureInfo.InvariantCulture;
+        var today = Calendar.Now.Date;
+        var first = new DateTime(today.Year, today.Month, 1);
+        int start = (int)Calendar.WeekStart, days = DateTime.DaysInMonth(today.Year, today.Month);
+        lines.Add(new Line(Kind.Header, [today.ToString("MMMM yyyy", inv), today.ToString("ddd d", inv)])); // only the month is bold
+        var head = new string[7];
+        for (int c = 0; c < 7; c++) head[c] = dayNames[(start + c) % 7];
+        lines.Add(new Line(Kind.WeekHead, head));
+        for (int d = 1 - ((int)first.DayOfWeek - start + 7) % 7; d <= days; d += 7)
+        {
+            var cells = new string[7];
+            int todayCol = -1, marks = 0;
+            for (int c = 0; c < 7; c++)
+            {
+                int day = d + c;
+                cells[c] = day < 1 || day > days ? "" : day.ToString(inv);
+                if (cells[c].Length == 0) continue;
+                if (day == today.Day) todayCol = c;
+                if (Calendar.HasEventOn(first.AddDays(day - 1))) marks |= 1 << c;
+            }
+            lines.Add(new Line(Kind.Week, cells, Today: todayCol, Marks: marks));
+        }
+        lines.Add(new Line(Kind.Gap, []));
+        if (!Calendar.HasData)
+        {
+            lines.Add(new Line(Kind.Note, [Calendar.Failures > 0 ? "Can't reach the calendar; trying again soon." : "Loading..."]));
+            return;
+        }
+        var rows = Calendar.Agenda(out int more);
+        if (rows.Count == 0) lines.Add(new Line(Kind.Note, [Settings.CalendarDays == 1 ? "Nothing today or tomorrow" : $"Nothing in the next {Settings.CalendarDays} days"]));
+        DateTime last = default;
+        foreach (var r in rows)
+        {
+            lines.Add(new Line(Kind.Event, [r.Day == last ? "" : Calendar.DayLabel(r.Day), r.Time, r.Title]));
+            last = r.Day;
+        }
+        if (more > 0) lines.Add(new Line(Kind.Note, [$"+{more} more"]));
+        lines.Add(new Line(Kind.Note, [Weather.AgeText(Calendar.Age) + (Calendar.Failures > 0 ? " · can't reach the calendar" : "")]));
+    }
+
     static (nint normal, nint bold) Fonts()
     {
         float s = dpi / 96f;
         int h = -(int)MathF.Round(12 * s);
         return (CreateFontW(h, 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, 5, 0, "Segoe UI"), CreateFontW(h, 0, 0, 0, 600, 0, 0, 0, 1, 0, 0, 5, 0, "Segoe UI"));
     }
+
+    static int HeightOf(Line l) => l.Kind == Kind.Gap ? lineH / 3 : lineH;
+    static bool Spans(Line l) => l.Kind is Kind.Header or Kind.Note or Kind.Warn; // one text across the popup
 
     /// <summary>Column widths and the popup's size for the current lines.</summary>
     static void Measure()
@@ -118,9 +174,9 @@ static unsafe class Tooltip
         ReleaseDC(0, screen);
         var old = SelectObject(dc, fn);
 
-        colW = new int[4];
-        int textH = 0;
-        bool rows = false;
+        colW = new int[4]; evW = new int[3];
+        int textH = 0, dayW = 0, titleMax = (int)(230 * s);
+        bool rows = false, events = false, grid = false;
         hasIcons = false;
         foreach (var l in lines)
         {
@@ -130,8 +186,11 @@ static unsafe class Tooltip
                 GetTextExtentPoint32W(dc, l.Cells[c], l.Cells[c].Length, out var sz);
                 textH = Math.Max(textH, sz.Cy);
                 if (l.Kind == Kind.Row && c < colW.Length) colW[c] = Math.Max(colW[c], sz.Cx);
+                else if (l.Kind == Kind.Event && c < evW.Length) evW[c] = Math.Max(evW[c], c == 2 ? Math.Min(sz.Cx, titleMax) : sz.Cx);
+                else if (l.Kind is Kind.Week or Kind.WeekHead) dayW = Math.Max(dayW, sz.Cx);
             }
             if (l.Kind == Kind.Row) { rows = true; hasIcons |= l.Icon != null; }
+            events |= l.Kind == Kind.Event; grid |= l.Kind == Kind.Week;
         }
         lineH = Math.Max(textH + (int)(6 * s), (int)(23 * s));
         iconW = lineH; lead = iconW + (int)(4 * s);
@@ -139,7 +198,7 @@ static unsafe class Tooltip
         int spanW = 0;
         foreach (var l in lines)
         {
-            if (l.Kind == Kind.Row) continue;
+            if (!Spans(l)) continue;
             SelectObject(dc, l.Kind == Kind.Header ? fb : fn);
             GetTextExtentPoint32W(dc, l.Cells[0], l.Cells[0].Length, out var sz);
             int tw = sz.Cx;
@@ -154,8 +213,14 @@ static unsafe class Tooltip
         SelectObject(dc, old); DeleteDC(dc); DeleteObject(fn); DeleteObject(fb);
 
         int rowsW = rows ? colW.Sum() + 3 * gap + (hasIcons ? iconW + gap : 0) : 0;
-        width = pad * 2 + Math.Max(spanW, rowsW);
-        height = pad * 2 + lines.Count * lineH;
+        int eventsW = events ? evW.Sum() + 2 * gap : 0;
+        int cellMin = Math.Max(dayW + (int)(14 * s), lineH + (int)(6 * s));
+        int inner = Math.Max(Math.Max(spanW, rowsW), Math.Max(eventsW, grid ? 7 * cellMin : 0));
+        // the grid uses the popup's width up to a point; beyond that it would look stretched, so it is centred
+        cellW = Math.Min(inner / 7f, cellMin * 1.5f);
+        gridX = pad + (inner - 7 * cellW) / 2;
+        width = pad * 2 + inner;
+        height = pad * 2 + lines.Sum(HeightOf);
     }
 
     static void Place()
@@ -176,16 +241,18 @@ static unsafe class Tooltip
         Visible = true;
     }
 
+    static uint ColorRef(uint rgb) => Rgb((int)(rgb >> 16), (int)((rgb >> 8) & 0xFF), (int)(rgb & 0xFF));
+
     /// <summary>Draws the popup into a bitmap, then onto the window, or into a file for --render.</summary>
     static void Paint(nint dc, string? saveTo = null)
     {
         bool light = Strip.LightTheme();
         uint bgRgb = light ? 0xF9F9F9u : 0x2B2B2Bu;
-        uint bg = Rgb((int)(bgRgb >> 16), (int)((bgRgb >> 8) & 0xFF), (int)(bgRgb & 0xFF));
+        uint bg = ColorRef(bgRgb);
         uint fg = light ? Rgb(0x1A, 0x1A, 0x1A) : Rgb(0xF2, 0xF2, 0xF2);
         uint dim = light ? Rgb(0x5C, 0x5C, 0x5C) : Rgb(0xA8, 0xA8, 0xA8);
-        uint wetRgb = Icons.RainColor(light);
-        uint wet = Rgb((int)(wetRgb >> 16), (int)((wetRgb >> 8) & 0xFF), (int)(wetRgb & 0xFF));
+        uint wet = ColorRef(Icons.RainColor(light));
+        uint accentRgb = Icons.Accent(light), onAccentRgb = light ? 0xFFFFFFu : 0x1A1A1Au; // today's disc and the text on it
         float s = dpi / 96f;
 
         var mem = CreateCompatibleDC(dc);
@@ -197,13 +264,28 @@ static unsafe class Tooltip
         var brush = CreateSolidBrush(bg);
         FillRect(mem, &rc, brush);
         DeleteObject(brush);
+        GdiFlush();
+        Gfx.Target(px, width, height, bgRgb);
+
+        // under the text: the disc behind today's number
+        int y = pad;
+        foreach (var l in lines)
+        {
+            if (l.Kind == Kind.Week && l.Today >= 0)
+            {
+                float tx = gridX + (l.Today + 0.5f) * cellW, ty = y + lineH / 2f, tr = lineH / 2f - s;
+                Gfx.Fill(tx - tr, ty - tr, tx + tr, ty + tr, (a, b) => Gfx.Disc(a, b, tx, ty, tr), accentRgb);
+            }
+            y += HeightOf(l);
+        }
 
         var (fn, fb) = Fonts();
         var oldFont = SelectObject(mem, fn);
         SetBkMode(mem, TRANSPARENT);
         const uint fmt = DT_SINGLELINE | DT_END_ELLIPSIS | DT_NOPREFIX | DT_VCENTER;
         var marks = new List<(Line line, float x, float y)>(); // icons and badges go on after the text
-        int y = pad;
+        var dots = new List<(float x, float y, uint rgb)>();   // days with events
+        y = pad;
         foreach (var l in lines)
         {
             if (l.Kind == Kind.Row)
@@ -227,7 +309,32 @@ static unsafe class Tooltip
                 Cell(2, fg, DT_RIGHT);
                 Cell(3, l.Wet ? wet : dim, DT_RIGHT);
             }
-            else
+            else if (l.Kind == Kind.Event)
+            {
+                int x = pad;
+                SelectObject(mem, fn);
+                for (int c = 0; c < 3; c++)
+                {
+                    var cr = new RECT { Left = x, Top = y, Right = x + evW[c], Bottom = y + lineH };
+                    SetTextColor(mem, c == 1 ? dim : fg);
+                    DrawTextW(mem, l.Cells[c], -1, &cr, fmt);
+                    x += evW[c] + gap;
+                }
+            }
+            else if (l.Kind is Kind.Week or Kind.WeekHead)
+            {
+                SelectObject(mem, fn);
+                for (int c = 0; c < 7; c++)
+                {
+                    if (l.Cells[c].Length == 0) continue;
+                    var cr = new RECT { Left = (int)(gridX + c * cellW), Top = y, Right = (int)(gridX + (c + 1) * cellW), Bottom = y + lineH };
+                    bool today = l.Kind == Kind.Week && c == l.Today;
+                    SetTextColor(mem, l.Kind == Kind.WeekHead ? dim : today ? ColorRef(onAccentRgb) : fg);
+                    DrawTextW(mem, l.Cells[c], -1, &cr, fmt | DT_CENTER);
+                    if ((l.Marks & (1 << c)) != 0) dots.Add((gridX + (c + 0.5f) * cellW, y + lineH - 2.6f * s, today ? onAccentRgb : accentRgb));
+                }
+            }
+            else if (Spans(l))
             {
                 var r = new RECT { Left = pad, Top = y, Right = width - pad, Bottom = y + lineH };
                 if (l.Icon != null || l.Badge != 0)
@@ -242,19 +349,20 @@ static unsafe class Tooltip
                 {
                     GetTextExtentPoint32W(mem, l.Cells[0], l.Cells[0].Length, out var w0);
                     r.Left += w0.Cx + (int)(7 * s);
-                    SelectObject(mem, fn); // the temperature and the sky in the normal weight
+                    SelectObject(mem, fn); // the temperature and the sky (or today's date) in the normal weight
                     DrawTextW(mem, l.Cells[1], -1, &r, fmt);
                 }
             }
-            y += lineH;
+            y += HeightOf(l);
         }
         GdiFlush();
-        Gfx.Target(px, width, height, bgRgb);
         foreach (var (l, mx, my) in marks)
         {
             if (l.Icon is { } sky) Icons.Draw(sky, l.Night, mx, my, lineH - (int)(3 * s), light);
             else Icons.Badge(mx, my, 13 * s, l.Badge == 2, light);
         }
+        float dr = 1.4f * s;
+        foreach (var (dx, dy, rgb) in dots) Gfx.Fill(dx - dr, dy - dr, dx + dr, dy + dr, (a, b) => Gfx.Disc(a, b, dx, dy, dr), rgb);
 
         if (saveTo != null) Strip.Dump(saveTo, px, width, height, opaque: true);
         else Native.BitBlt(dc, 0, 0, width, height, mem, 0, 0, 0x00CC0020);
@@ -262,10 +370,10 @@ static unsafe class Tooltip
         DeleteObject(fn); DeleteObject(fb); DeleteObject(bmp); DeleteDC(mem);
     }
 
-    /// <summary>--render: the weather popup for the loaded (made-up) data, drawn into a file with no window.</summary>
-    public static int RenderToFile(string path, uint renderDpi)
+    /// <summary>--render: a segment's popup for the loaded (made-up) data, drawn into a file with no window.</summary>
+    public static int RenderToFile(string path, uint renderDpi, int kind)
     {
-        dpi = renderDpi; showing = Strip.WeatherKind;
+        dpi = renderDpi; showing = kind;
         Build();
         if (lines.Count == 0) return 1;
         Measure();
@@ -275,13 +383,15 @@ static unsafe class Tooltip
         return 0;
     }
 
-    /// <summary>The weather popup's lines in words (tests).</summary>
-    public static string Describe()
+    /// <summary>A segment's popup, line by line, in words (tests).</summary>
+    public static string Describe(int kind)
     {
-        showing = Strip.WeatherKind;
+        showing = kind;
         Build();
-        return string.Join("\n", lines.Select(l => $"{l.Kind}: {string.Join(" | ", l.Cells)}" +
-            (l.Icon is { } s ? $" [{s}{(l.Night ? " night" : " day")}]" : "") + (l.Badge != 0 ? $" [badge {(l.Badge == 2 ? "thunder" : "rain")}]" : "")));
+        return string.Join("\n", lines.Where(l => l.Kind != Kind.Gap).Select(l => $"{l.Kind}: {string.Join(" | ", l.Cells)}" +
+            (l.Icon is { } s ? $" [{s}{(l.Night ? " night" : " day")}]" : "") + (l.Badge != 0 ? $" [badge {(l.Badge == 2 ? "thunder" : "rain")}]" : "") +
+            (l.Today >= 0 ? $" [today {l.Cells[l.Today]}]" : "") +
+            (l.Marks != 0 ? $" [events {string.Join(",", l.Cells.Where((_, c) => (l.Marks & (1 << c)) != 0))}]" : "")));
     }
 
     [UnmanagedCallersOnly]

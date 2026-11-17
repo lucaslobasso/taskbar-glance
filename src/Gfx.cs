@@ -104,6 +104,7 @@ static class Icons
     static uint RainCol => light ? 0x2F86E0u : 0x5BB0FFu;
     static uint SnowCol => light ? 0x6FA8DEu : 0xFFFFFFu;
     public static uint RainColor(bool lightTheme) => lightTheme ? 0x2F86E0u : 0x5BB0FFu;
+    public static uint Accent(bool lightTheme) => RainColor(lightTheme);
 
     /// <summary>Draws one weather icon centred on (centerX, centerY) into the current Gfx target.</summary>
     public static void Draw(Sky sky, bool night, float centerX, float centerY, float size, bool lightTheme)

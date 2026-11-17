@@ -7,8 +7,9 @@ namespace TaskbarGlance;
 
 static unsafe class Strip
 {
-    public const uint WM_FETCHED = WM_APP + 1;   // posted by the fetch thread
-    public const int WeatherKind = 0;            // segment kinds (the calendar will be 1)
+    public const uint WM_FETCHED = WM_APP + 1;   // posted by the weather's fetch thread
+    public const uint WM_CALFETCHED = WM_APP + 2; // posted by the calendar's fetch thread
+    public const int WeatherKind = 0, CalendarKind = 1; // segment kinds
 
     public static nint Hwnd;
     public static uint TaskbarCreatedMsg;
@@ -17,7 +18,8 @@ static unsafe class Strip
     public static bool? LightOverride;           // --render
 
     record struct Region(int X0, int X1, int Kind);
-    /// <summary>One segment: optional icon, text, optional badge (1 = rain later today, 2 = thunder later today).</summary>
+    /// <summary>One segment: optional icon, text, optional badge (1 = rain later today, 2 = thunder later today).
+    /// The calendar is text only.</summary>
     record struct Item(int Kind, Sky? Icon, bool Night, string Text, int Badge);
     static Region[] regions = [];
 
@@ -138,6 +140,7 @@ static unsafe class Strip
             }
             else items.Add(new Item(WeatherKind, Sky.Cloudy, false, "–", 0)); // no reading yet, or it is too old to show
         }
+        if (Calendar.Configured) items.Add(new Item(CalendarKind, null, false, Calendar.StripText(), 0));
         return items;
     }
 
@@ -174,7 +177,7 @@ static unsafe class Strip
         Tooltip.Hide();
     }
 
-    /// <summary>The weather sits at the anchored edge and the Claude Taskbar strip (if it runs) steps outward past it.
+    /// <summary>Our strip sits at the anchored edge and the Claude Taskbar strip (if it runs) steps outward past it.
     /// It finds our window by class name; this message tells it when our size or visibility changed.</summary>
     static void NotifyNeighbors()
     {
@@ -334,10 +337,10 @@ static unsafe class Strip
         return -1;
     }
 
-    /// <summary>Debug aid (GLANCE_DEBUG_TIP=weather): open that segment's popup without the mouse.</summary>
+    /// <summary>Debug aid (GLANCE_DEBUG_TIP=weather or calendar): open that segment's popup without the mouse.</summary>
     public static void DebugTip(string key)
     {
-        hover = Array.FindIndex(regions, r => r.Kind == (key == "weather" ? WeatherKind : -1));
+        hover = Array.FindIndex(regions, r => r.Kind == (key == "weather" ? WeatherKind : key == "calendar" ? CalendarKind : -1));
         ShowHoverTip();
     }
 
@@ -354,11 +357,12 @@ static unsafe class Strip
         int r = RegionAt(x);
         int kind = r >= 0 ? regions[r].Kind : regions.Length > 0 ? regions[0].Kind : -1;
         if (kind == WeatherKind) Shell.OpenWeather();
+        else if (kind == CalendarKind) Shell.OpenCalendar();
     }
 
     static void Menu()
     {
-        const int Open = 1, Refresh_ = 2, Celsius = 10, Fahrenheit = 11, Auto = 40, Edit = 50, PosLeft = 60, PosRight = 61, Exit = 99;
+        const int Open = 1, Refresh_ = 2, OpenCal = 3, SetUpCal = 4, Celsius = 10, Fahrenheit = 11, Auto = 40, Edit = 50, PosLeft = 60, PosRight = 61, Exit = 99;
         var pos = CreatePopupMenu();
         AppendMenuW(pos, Settings.Left ? MF_CHECKED : 0, PosLeft, "Left side of the taskbar");
         AppendMenuW(pos, Settings.Left ? 0 : MF_CHECKED, PosRight, "Right side, next to the tray");
@@ -366,7 +370,9 @@ static unsafe class Strip
         AppendMenuW(units, Settings.Fahrenheit ? 0 : MF_CHECKED, Celsius, "Celsius (°C)");
         AppendMenuW(units, Settings.Fahrenheit ? MF_CHECKED : 0, Fahrenheit, "Fahrenheit (°F)");
         var m = CreatePopupMenu();
-        AppendMenuW(m, 0, Open, "Open forecast");
+        if (Settings.ShowWeather) AppendMenuW(m, 0, Open, "Open forecast");
+        if (Calendar.Configured) AppendMenuW(m, 0, OpenCal, "Open calendar");
+        else if (Settings.ShowCalendar) AppendMenuW(m, 0, SetUpCal, "Add a calendar (how to)");
         AppendMenuW(m, Weather.Offline ? MF_GRAYED : 0, Refresh_, "Refresh now");
         AppendMenuW(m, MF_SEPARATOR, 0, null);
         AppendMenuW(m, MF_POPUP, (nuint)units, "Temperature");
@@ -383,7 +389,9 @@ static unsafe class Strip
         switch (cmd)
         {
             case Open: Shell.OpenWeather(); break;
-            case Refresh_: Weather.Fetch(); break;
+            case Refresh_: Weather.Fetch(); Calendar.Fetch(); break;
+            case OpenCal: Shell.OpenCalendar(); break;
+            case SetUpCal: Shell.OpenUrl("https://github.com/lucaslobasso/taskbar-glance#calendar"); break;
             case Celsius: Settings.Fahrenheit = false; Settings.Save(); Refresh(); break;
             case Fahrenheit: Settings.Fahrenheit = true; Settings.Save(); Refresh(); break;
             case PosLeft: Settings.Left = true; Settings.Save(); Refresh(force: true); break;
@@ -430,9 +438,20 @@ static unsafe class Strip
                     Tooltip.RefreshIfOpen();
                     Program.ScheduleTrim();
                     return 0;
+                case WM_CALFETCHED:
+                    Calendar.OnFetched();
+                    Refresh();
+                    Tooltip.RefreshIfOpen();
+                    Program.ScheduleTrim();
+                    return 0;
                 case WM_POWERBROADCAST:
-                    if (w is 0x12 or 0x7) Weather.OnResume(); // resumed from sleep
+                    if (w is 0x12 or 0x7) { Weather.OnResume(); Calendar.OnResume(); Refresh(); } // resumed from sleep
                     return 1;
+                case WM_TIMECHANGE: // the PC's clock or time zone was changed
+                    TimeZoneInfo.ClearCachedData();
+                    Calendar.OnResume();
+                    Refresh();
+                    return 0;
                 case WM_DISPLAYCHANGE:
                 case WM_DPICHANGED:
                 case WM_SETTINGCHANGE:

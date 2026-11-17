@@ -37,7 +37,7 @@ static unsafe class Native
     public const uint WS_EX_LAYERED = 0x80000, WS_EX_TOOLWINDOW = 0x80, WS_EX_NOACTIVATE = 0x08000000, WS_EX_TOPMOST = 0x8, WS_EX_TRANSPARENT = 0x20;
     public const uint WM_DESTROY = 0x2, WM_PAINT = 0xF, WM_CLOSE = 0x10, WM_QUIT = 0x12, WM_SETTINGCHANGE = 0x1A, WM_MOUSEACTIVATE = 0x21,
         WM_DISPLAYCHANGE = 0x7E, WM_NCHITTEST = 0x84, WM_TIMER = 0x113, WM_MOUSEMOVE = 0x200, WM_LBUTTONUP = 0x202, WM_RBUTTONUP = 0x205,
-        WM_MOUSELEAVE = 0x2A3, WM_DPICHANGED = 0x2E0, WM_APP = 0x8000, WM_USER = 0x400, WM_NULL = 0, WM_ERASEBKGND = 0x14, WM_POWERBROADCAST = 0x218;
+        WM_MOUSELEAVE = 0x2A3, WM_DPICHANGED = 0x2E0, WM_APP = 0x8000, WM_USER = 0x400, WM_NULL = 0, WM_ERASEBKGND = 0x14, WM_TIMECHANGE = 0x1E, WM_POWERBROADCAST = 0x218;
     public const int MA_NOACTIVATE = 3;
     public const int SW_HIDE = 0, SW_SHOWNOACTIVATE = 4, SW_RESTORE = 9, SW_SHOWNA = 8;
     public const uint SWP_NOSIZE = 0x1, SWP_NOMOVE = 0x2, SWP_NOZORDER = 0x4, SWP_NOACTIVATE = 0x10, SWP_SHOWWINDOW = 0x40;
@@ -50,7 +50,7 @@ static unsafe class Native
     public const uint EVENT_SYSTEM_FOREGROUND = 0x3, EVENT_OBJECT_LOCATIONCHANGE = 0x800B, WINEVENT_OUTOFCONTEXT = 0;
     public const uint MF_STRING = 0, MF_SEPARATOR = 0x800, MF_CHECKED = 0x8, MF_POPUP = 0x10, MF_GRAYED = 0x1;
     public const uint TPM_RETURNCMD = 0x100, TPM_RIGHTBUTTON = 0x2, TPM_BOTTOMALIGN = 0x20;
-    public const uint DT_SINGLELINE = 0x20, DT_END_ELLIPSIS = 0x8000, DT_NOPREFIX = 0x800, DT_VCENTER = 0x4, DT_LEFT = 0, DT_RIGHT = 0x2, DT_CALCRECT = 0x400;
+    public const uint DT_SINGLELINE = 0x20, DT_END_ELLIPSIS = 0x8000, DT_NOPREFIX = 0x800, DT_VCENTER = 0x4, DT_LEFT = 0, DT_CENTER = 0x1, DT_RIGHT = 0x2, DT_CALCRECT = 0x400;
     public const int TRANSPARENT = 1;
     public const uint RRF_RT_REG_DWORD = 0x10, RRF_RT_REG_SZ = 0x2;
     public const uint REG_SZ = 1;
@@ -129,6 +129,7 @@ static unsafe class Native
     [DllImport("kernel32.dll", ExactSpelling = true)] public static extern int SetProcessWorkingSetSize(nint proc, nint min, nint max);
     [DllImport("kernel32.dll", ExactSpelling = true, CharSet = CharSet.Unicode)] public static extern nint CreateMutexW(nint attrs, int owner, string name);
     [DllImport("kernel32.dll", ExactSpelling = true)] public static extern uint GetLastError();
+    [DllImport("kernel32.dll", ExactSpelling = true, CharSet = CharSet.Unicode)] public static extern int GetLocaleInfoEx(string? locale, uint type, out int data, int size);
 
     // winhttp
     [DllImport("winhttp.dll", ExactSpelling = true, CharSet = CharSet.Unicode, SetLastError = true)] public static extern nint WinHttpOpen(string agent, uint accessType, nint proxy, nint bypass, uint flags);
@@ -140,6 +141,9 @@ static unsafe class Native
     [DllImport("winhttp.dll", ExactSpelling = true)] public static extern int WinHttpQueryHeaders(nint req, uint level, nint name, void* buffer, ref uint size, nint index);
     [DllImport("winhttp.dll", ExactSpelling = true, SetLastError = true)] public static extern int WinHttpReadData(nint req, void* buffer, uint toRead, out uint read);
     [DllImport("winhttp.dll", ExactSpelling = true)] public static extern int WinHttpCloseHandle(nint h);
+
+    // icu (part of Windows 10 1903 and newer): "Europe/Madrid" to the name Windows uses for that zone
+    [DllImport("icu.dll", ExactSpelling = true, CharSet = CharSet.Unicode)] public static extern int ucal_getWindowsTimeZoneID(string id, int len, char* winId, int capacity, out int status);
 
     // shell32 / dwmapi / advapi32
     [DllImport("shell32.dll", ExactSpelling = true)] public static extern int SHQueryUserNotificationState(out int state);
