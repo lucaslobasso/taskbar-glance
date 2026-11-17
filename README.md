@@ -10,7 +10,7 @@
   <img src="docs/tip-thunder-later.png" alt="The weather popup: Buenos Aires, 27 degrees, overcast; rain from 16:00 and a thunderstorm from 18:00; the forecast at 14:00 and 20:00 today and 08:00, 14:00 and 20:00 tomorrow" width="300" valign="bottom">
   <img src="docs/tip-calendar.png" alt="The calendar popup: November 2026 as a grid with today marked and a dot under the days that have events, then the coming events: the dentist today at 15:30, a birthday tomorrow, a call with New York on Wednesday" width="300" valign="bottom">
   <br>
-  <img src="docs/strip-calendar.png" alt="The strip next to the tray: partly cloudy, 23 degrees, an amber exclamation mark, then Today 15:30 Dentist" width="290">
+  <img src="docs/strip-calendar.png" alt="The strip next to the tray: partly cloudy, 23 degrees, an amber exclamation mark, then 15:30 Dentist" width="290">
 </p>
 
 The weather and your next calendar event in the Windows 11 taskbar: the temperature, an icon for the sky, a mark when rain or a thunderstorm is announced for later today, and what is next on your calendar. Hover for the forecast or for the month and the coming events, click for the full page. It is one tiny native exe that sleeps between a small request every 30 minutes for the weather and one every 15 for each calendar.
@@ -23,7 +23,7 @@ The weather and your next calendar event in the Windows 11 taskbar: the temperat
 - **The warning mark:** an amber `!` when rain is announced for later today, a red one for a thunderstorm. It is not shown while it already rains, or snows.
 - **Hover:** the current weather, what is coming, and the forecast at 08:00, 14:00 and 20:00 (you choose the hours) for the rest of today and tomorrow, with the chance of rain.
 - **Click:** opens the forecast page you prefer (`weatherUrl`), or a web search for your city's weather. **Right-click** for refresh, °C / °F, left or right side, start with Windows.
-- **The next event** (once you [add a calendar](#calendar)): `Today 15:30 · Dentist`, `Tomorrow · Ana's birthday`, `Thu 10:00 · Standup`, or `Now · Standup` while it is going on. Hover for this month, with today and the days that have events marked, and the events of the next 14 days. Click opens Google Calendar.
+- **The next event** (once you [add a calendar](#calendar)): `15:30 · Dentist`, `Tomorrow · Ana's birthday`, `Thu 10:00 · Standup`, or `Now · Standup` while it is going on. Hover for this month, with today and the days that have events marked, and the events of the next 14 days. Click opens Google Calendar.
 - **Next to [Claude Taskbar](https://github.com/lucaslobasso/claude-taskbar):** Glance keeps the anchored edge and Claude Taskbar (1.2 and newer) docks just outside it, so they never overlap.
 
 ### Light by design
@@ -83,6 +83,7 @@ Save, and the next event shows up within seconds.
 - **Treat the address like a password:** whoever has it can read that calendar. It stays in `glance.json` on your PC; the log and the saved copy never contain it. If it leaks, Google's **Reset** button next to it makes a new one.
 - **Any iCal address works**, not just Google's: Outlook.com (*Settings → Calendar → Shared calendars → Publish a calendar → ICS*), iCloud public calendars, a holiday or sports calendar. `webcal://` addresses are fine as they are.
 - **What the strip shows:** the next event still to start today; else the one going on now; else today's all-day event; else the first event of the coming days (`calendarDays`). An event of two calendars shows once.
+- **When:** an event of today shows just its time (`15:30 · Dentist`). Otherwise a legend says the day: `Tomorrow`, the weekday while it is still this week (`Thu 10:00 · Standup`), the date after that (`Nov 26 · Thanksgiving Day`).
 - **Repeating events** are worked out on your PC: daily, weekly, monthly and yearly rules ("every other Tuesday", "the last Friday of the month", "until June", "10 times"), skipped and moved occurrences, cancelled events, and time zones with their summer time. Events that repeat every few hours or minutes count once.
 - Times use the 24-hour clock and your PC's time zone. The month starts on the day Windows is set to (*Settings → Time & language → Language & region → Regional format*).
 
@@ -125,7 +126,7 @@ The app adds a `location` block with the coordinates it found for the city. Edit
 | No city yet | <img src="docs/strip-nocity.png" alt="Partly cloudy icon and the text Set city" width="190"> |
 | Hover, rain later today | <img src="docs/tip-rain-later.png" alt="Popup with an amber warning and the forecast rows" width="300"> |
 | Hover, light taskbar | <img src="docs/tip-light.png" alt="The same popup in the light theme" width="300"> |
-| With a calendar: the next event | <img src="docs/strip-calendar.png" alt="Weather, then Today 15:30 Dentist" width="290"> |
+| With a calendar: the next event | <img src="docs/strip-calendar.png" alt="Weather, then 15:30 Dentist" width="290"> |
 | The same on a light taskbar | <img src="docs/strip-calendar-light.png" alt="The same strip on a light taskbar" width="290"> |
 | `showWeather: false`, nothing left today | <img src="docs/strip-calendar-only.png" alt="Tomorrow, Ana's birthday" width="190"> |
 | Hover on the calendar | <img src="docs/tip-calendar.png" alt="The month grid with today on a blue disc and dots under the days with events, then eight events and plus 7 more" width="300"> |

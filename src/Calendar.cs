@@ -112,7 +112,9 @@ static class Calendar
         return later is { } l ? (l, false) : null;
     }
 
-    /// <summary>The segment's text: "Today 15:00 · Dentist", "Tomorrow · Ana's birthday", "Now · Standup".</summary>
+    /// <summary>The segment's text. An event of today has no legend ("15:30 · Dentist"); otherwise it says when:
+    /// "Tomorrow", the weekday while it is still this week ("Thu 10:00 · Standup"), the date after that
+    /// ("Nov 26 · Thanksgiving"). "Now · Standup" while it is going on.</summary>
     public static string StripText()
     {
         if (!HasData) return Failures > 0 ? "–" : "…";
@@ -122,8 +124,10 @@ static class Calendar
         if (n.Ongoing) return $"Now · {title}";
         var day = e.Start.Date < today ? today : e.Start.Date;
         int d = (day - today).Days;
-        string legend = d == 0 ? "Today" : d == 1 ? "Tomorrow" : d < 7 ? day.ToString("ddd", inv) : day.ToString("MMM d", inv);
-        return e.AllDay ? $"{legend} · {title}" : $"{legend} {Weather.Clock(e.Start)} · {title}";
+        var nextWeek = today.AddDays(7 - ((int)today.DayOfWeek - (int)WeekStart + 7) % 7);
+        string legend = d == 0 ? "" : d == 1 ? "Tomorrow" : day < nextWeek ? day.ToString("ddd", inv) : day.ToString("MMM d", inv);
+        string when = e.AllDay ? legend : legend.Length > 0 ? $"{legend} {Weather.Clock(e.Start)}" : Weather.Clock(e.Start);
+        return when.Length > 0 ? $"{when} · {title}" : title; // today's all-day event: just its name
     }
 
     static string Short(string title)
