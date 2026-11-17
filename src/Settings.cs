@@ -12,6 +12,7 @@ static class Paths
         ? d : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TaskbarGlance");
     public static readonly string SettingsFile = Path.Combine(App, "glance.json");
     public static readonly string WeatherFile = Path.Combine(App, "weather.json");
+    public static readonly string CalendarFile = Path.Combine(App, "calendar.json");
 }
 
 static class Settings
@@ -25,6 +26,14 @@ static class Settings
     public static int RefreshMinutes = 30;
     public static bool Left;                   // "position": "left" (taskbar's left edge) or "right" (next to the tray, default)
     public static int OffsetX;                 // px at 100% scaling, measured from the chosen edge
+
+    public static bool ShowCalendar = true;    // shown once "calendars" has an address
+    public static string[] Calendars = [];     // iCal addresses (Google Calendar: "Secret address in iCal format")
+    public static string CalendarUrl = "";     // opened on click; empty = Google Calendar
+    public static int CalendarDays = 14;       // how far ahead the strip and the popup look
+    public static int CalendarRefreshMinutes = 15;
+    public static int CalendarTitleLength = 24; // longer titles are cut on the strip
+    public static int CalendarRows = 8;        // events listed in the popup
 
     // location block: what the city resolved to. Edit latitude/longitude by hand for an exact spot.
     public static string ResolvedFor = "";     // the "city" text these coordinates belong to
@@ -55,6 +64,13 @@ static class Settings
             RefreshMinutes = Math.Clamp(Json.Int(r, "refreshMinutes", 30), 10, 720);
             Left = Json.Str(r, "position") == "left";
             OffsetX = Json.Int(r, "offsetX", 0);
+            ShowCalendar = Json.Bool(r, "showCalendar", true);
+            Calendars = Addresses(r);
+            CalendarUrl = (Json.Str(r, "calendarUrl") ?? "").Trim();
+            CalendarDays = Math.Clamp(Json.Int(r, "calendarDays", 14), 1, 60);
+            CalendarRefreshMinutes = Math.Clamp(Json.Int(r, "calendarRefreshMinutes", 15), 5, 720);
+            CalendarTitleLength = Math.Clamp(Json.Int(r, "calendarTitleLength", 24), 4, 80);
+            CalendarRows = Math.Clamp(Json.Int(r, "calendarRows", 8), 1, 30);
             ResolvedFor = ""; Place = ""; Latitude = Longitude = 0;
             if (r.TryGetProperty("location", out var loc) && loc.ValueKind == JsonValueKind.Object
                 && Json.Num(loc, "latitude") is { } la && Json.Num(loc, "longitude") is { } lo)
@@ -77,6 +93,20 @@ static class Settings
         return list.Count > 0 ? list.ToArray() : null;
     }
 
+    /// <summary>"calendars": a list of addresses, or just one as text.</summary>
+    static string[] Addresses(JsonElement r)
+    {
+        var list = new List<string>();
+        void Add(string? s) { if ((s = s?.Trim()) is { Length: > 0 } && !list.Contains(s)) list.Add(s); }
+        if (r.TryGetProperty("calendars", out var a))
+        {
+            if (a.ValueKind == JsonValueKind.String) Add(a.GetString());
+            else if (a.ValueKind == JsonValueKind.Array)
+                foreach (var e in a.EnumerateArray()) if (e.ValueKind == JsonValueKind.String) Add(e.GetString());
+        }
+        return list.ToArray();
+    }
+
     public static void Save()
     {
         try
@@ -97,6 +127,15 @@ static class Settings
                 w.WriteNumber("refreshMinutes", RefreshMinutes);
                 w.WriteString("position", Left ? "left" : "right");
                 w.WriteNumber("offsetX", OffsetX);
+                w.WriteBoolean("showCalendar", ShowCalendar);
+                w.WriteStartArray("calendars");
+                foreach (var c in Calendars) w.WriteStringValue(c);
+                w.WriteEndArray();
+                w.WriteString("calendarUrl", CalendarUrl);
+                w.WriteNumber("calendarDays", CalendarDays);
+                w.WriteNumber("calendarRefreshMinutes", CalendarRefreshMinutes);
+                w.WriteNumber("calendarTitleLength", CalendarTitleLength);
+                w.WriteNumber("calendarRows", CalendarRows);
                 if (ResolvedFor.Length > 0)
                 {
                     w.WriteStartObject("location");

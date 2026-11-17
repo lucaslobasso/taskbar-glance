@@ -126,9 +126,10 @@ static class Weather
 
     public static string Clock(DateTime t) => t.ToString("HH:mm", CultureInfo.InvariantCulture);
 
-    public static string AgeText()
+    public static string AgeText() => AgeText(Age);
+
+    public static string AgeText(TimeSpan a)
     {
-        var a = Age;
         return a.TotalMinutes < 1.5 ? "updated just now" : a.TotalMinutes < 90 ? $"updated {(int)Math.Round(a.TotalMinutes)} min ago"
              : a.TotalHours < 36 ? $"updated {(int)Math.Round(a.TotalHours)} h ago" : $"updated {(int)Math.Round(a.TotalDays)} days ago";
     }

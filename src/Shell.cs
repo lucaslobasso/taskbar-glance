@@ -1,4 +1,4 @@
-// Shell actions: open the forecast page, autostart, open the settings file.
+// Shell actions: open the forecast page or the calendar, autostart, open the settings file.
 using static TaskbarGlance.Native;
 
 namespace TaskbarGlance;
@@ -16,6 +16,9 @@ static class Shell
             url = "https://www.google.com/search?q=" + Uri.EscapeDataString("weather " + (Settings.Place.Length > 0 ? Settings.Place : Settings.City));
         OpenUrl(url);
     }
+
+    /// <summary>The page behind the calendar segment: calendarUrl, or Google Calendar.</summary>
+    public static void OpenCalendar() => OpenUrl(Settings.CalendarUrl.Length > 0 ? Settings.CalendarUrl : Calendar.DefaultUrl);
 
     /// <summary>Only web addresses: a settings value never gets to start a program.</summary>
     public static void OpenUrl(string url)

@@ -61,6 +61,14 @@ static unsafe class Gfx
         return MathF.Sqrt(dx * dx + dy * dy) - r;
     }
 
+    /// <summary>A box with half-size hw x hh around (cx, cy) and corners of radius r.</summary>
+    public static float Box(float x, float y, float cx, float cy, float hw, float hh, float r)
+    {
+        float qx = MathF.Abs(x - cx) - (hw - r), qy = MathF.Abs(y - cy) - (hh - r);
+        float ox = MathF.Max(qx, 0), oy = MathF.Max(qy, 0);
+        return MathF.Sqrt(ox * ox + oy * oy) + MathF.Min(MathF.Max(qx, qy), 0) - r;
+    }
+
     /// <summary>Distance to the segment a-b, minus r: a line with round ends.</summary>
     public static float Capsule(float x, float y, float ax, float ay, float bx, float by, float r)
     {
@@ -104,6 +112,7 @@ static class Icons
     static uint RainCol => light ? 0x2F86E0u : 0x5BB0FFu;
     static uint SnowCol => light ? 0x6FA8DEu : 0xFFFFFFu;
     public static uint RainColor(bool lightTheme) => lightTheme ? 0x2F86E0u : 0x5BB0FFu;
+    public static uint Accent(bool lightTheme) => RainColor(lightTheme);
 
     /// <summary>Draws one weather icon centred on (centerX, centerY) into the current Gfx target.</summary>
     public static void Draw(Sky sky, bool night, float centerX, float centerY, float size, bool lightTheme)
@@ -140,6 +149,23 @@ static class Icons
                 Bolt();
                 break;
         }
+    }
+
+    /// <summary>The calendar segment's icon: a page with a coloured top edge, two rings and dots for the days.</summary>
+    public static void CalendarPage(float centerX, float centerY, float size, bool lightTheme)
+    {
+        cx = centerX; cy = centerY; d = size; light = lightTheme;
+        float bx = X(0), by = Y(0.05f), hw = 0.36f * d, hh = 0.33f * d, r = 0.09f * d;
+        float band = Y(-0.10f);
+        Fill((x, y) => Gfx.Box(x, y, bx, by, hw, hh, r), CloudCol);
+        Fill((x, y) => Math.Max(Gfx.Box(x, y, bx, by, hw, hh, r), y - band), light ? 0xD9453Du : 0xF0685Cu);
+        for (int i = 0; i < 2; i++) Line(-0.17f + 0.34f * i, -0.42f, -0.17f + 0.34f * i, -0.27f, 0.04f, DarkCloudCol);
+        for (int row = 0; row < 2; row++)
+            for (int col = 0; col < 3; col++)
+            {
+                float px = X(-0.19f + 0.19f * col), py = Y(0.06f + 0.17f * row), pr = Math.Max(0.045f * d, 0.9f);
+                Fill((x, y) => Gfx.Disc(x, y, px, py, pr), 0, erase: true);
+            }
     }
 
     /// <summary>The "something is coming later today" mark: a filled disc with an exclamation mark.</summary>

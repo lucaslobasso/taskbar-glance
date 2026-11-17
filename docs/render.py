@@ -2,14 +2,15 @@
 """Redraws the README pictures:  python docs/render.py
 
 Builds the app (dotnet build, no AOT needed) and runs its hidden `--render` mode, which draws the strip and its
-popup with the app's own drawing code for made-up forecasts: no window opens, no settings are read and nothing is
-fetched. Needs the .NET SDK and `pip install pillow`. tests/check.py reuses the scenarios below.
+popups with the app's own drawing code for made-up forecasts and calendars: no window opens, no settings are read and
+nothing is fetched. Needs the .NET SDK and `pip install pillow`. tests/check.py reuses the scenarios below.
 """
 from __future__ import annotations
 
 import json
 import math
 import os
+import re
 import struct
 import subprocess
 import sys
@@ -44,6 +45,71 @@ def forecast(cur: tuple[float, int, int], events: list[tuple[int, int, int, int]
     }
 
 
+def ics(*lines: str) -> str:
+    """An iCalendar file the way a server sends it: CRLF line ends, the zones it uses described in VTIMEZONE blocks."""
+    head = [
+        'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//taskbar-glance//made-up//EN',
+        'BEGIN:VTIMEZONE', 'TZID:America/Argentina/Buenos_Aires', 'BEGIN:STANDARD', 'TZOFFSETFROM:-0300',
+        'TZOFFSETTO:-0300', 'TZNAME:-03', 'DTSTART:19700101T000000', 'END:STANDARD', 'END:VTIMEZONE',
+        'BEGIN:VTIMEZONE', 'TZID:America/New_York',
+        'BEGIN:DAYLIGHT', 'TZOFFSETFROM:-0500', 'TZOFFSETTO:-0400', 'TZNAME:EDT', 'DTSTART:19700308T020000',
+        'RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU', 'END:DAYLIGHT',
+        'BEGIN:STANDARD', 'TZOFFSETFROM:-0400', 'TZOFFSETTO:-0500', 'TZNAME:EST', 'DTSTART:19701101T020000',
+        'RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU', 'END:STANDARD', 'END:VTIMEZONE',
+    ]
+    return '\r\n'.join(head + list(lines) + ['END:VCALENDAR', ''])
+
+
+def event(uid: str, title: str, *props: str) -> list[str]:
+    return ['BEGIN:VEVENT', f'UID:{uid}@made-up', f'SUMMARY:{title}', *props, 'END:VEVENT']
+
+
+BA = 'TZID=America/Argentina/Buenos_Aires'
+NY = 'TZID=America/New_York'
+
+# name -> calendar file. The scenes of the same name say what time it is (the PC is in Buenos Aires: tz=-180).
+CALENDARS = {
+    # a week in November as most calendars look: repeating meetings, a birthday, one moved and one skipped occurrence
+    'cal': ics(
+        *event('standup', 'Standup', f'DTSTART;{BA}:20260105T100000', f'DTEND;{BA}:20260105T101500',
+               'RRULE:FREQ=WEEKLY;BYDAY=MO,WE,FR', f'EXDATE;{BA}:20261118T100000'),
+        *event('dentist', 'Dentist', 'DTSTART:20261116T183000Z', 'DTEND:20261116T191500Z',
+               'BEGIN:VALARM', 'ACTION:EMAIL', 'SUMMARY:Alarm', 'TRIGGER:-PT30M', 'END:VALARM'),
+        *event('birthday', "Ana's birthday", 'DTSTART;VALUE=DATE:20201117', 'DTEND;VALUE=DATE:20201118', 'RRULE:FREQ=YEARLY'),
+        *event('ny', 'Call with New York', f'DTSTART;{NY}:20261118T090000', f'DTEND;{NY}:20261118T100000'),
+        *event('games', 'Board games', f'DTSTART;{BA}:20260130T200000', f'DTEND;{BA}:20260130T230000', 'RRULE:FREQ=MONTHLY;BYDAY=-1FR'),
+        *event('gym', 'Gym', f'DTSTART;{BA}:20260901T190000', f'DTEND;{BA}:20260901T200000', 'RRULE:FREQ=WEEKLY;BYDAY=TU,TH'),
+        *event('gym', 'Gym (early)', f'DTSTART;{BA}:20261119T180000', f'DTEND;{BA}:20261119T190000', f'RECURRENCE-ID;{BA}:20261119T190000'),
+        *event('gone', 'Cancelled thing', f'DTSTART;{BA}:20261116T140000', f'DTEND;{BA}:20261116T150000', 'STATUS:CANCELLED'),
+        *event('course', 'Course', f'DTSTART;{BA}:20261110T090000', f'DTEND;{BA}:20261110T110000', 'RRULE:FREQ=DAILY;COUNT=3'),
+        *event('class', 'Old class', f'DTSTART;{BA}:20260105T080000', f'DTEND;{BA}:20260105T090000',
+               'RRULE:FREQ=WEEKLY;BYDAY=MO;UNTIL=20261109T235959Z'),
+        *event('trip', 'Trip', 'DTSTART;VALUE=DATE:20261121', 'DTEND;VALUE=DATE:20261124'),
+        # a long line folded the way the format asks for, with an escaped comma
+        *event('lunch', 'Lunch\\, with Marta and\r\n  the whole team', f'DTSTART;{BA}:20261119T123000', f'DTEND;{BA}:20261119T133000',
+               'DESCRIPTION:SUMMARY:not this one'),
+    ),
+    # one of each rule the reader knows, seen from a Monday in July (New York is on summer time then)
+    'cal-rules': ics(
+        *event('ny', 'NY sync', f'DTSTART;{NY}:20260105T090000', f'DTEND;{NY}:20260105T100000', 'RRULE:FREQ=WEEKLY;BYDAY=MO'),
+        *event('pay', 'Payday', 'DTSTART;VALUE=DATE:20260131', 'RRULE:FREQ=MONTHLY;BYMONTHDAY=-1'),
+        *event('review', 'Workday review', f'DTSTART;{BA}:20260130T170000', f'DTEND;{BA}:20260130T173000',
+               'RRULE:FREQ=MONTHLY;BYDAY=MO,TU,WE,TH,FR;BYSETPOS=-1'),
+        *event('biweekly', 'Biweekly', f'DTSTART;{BA}:20260106T120000', f'DTEND;{BA}:20260106T130000', 'RRULE:FREQ=WEEKLY;INTERVAL=2;BYDAY=TU'),
+        *event('leap', 'Leap day', 'DTSTART;VALUE=DATE:20240229', 'RRULE:FREQ=YEARLY'),
+        *event('fair', 'Summer fair', 'DTSTART;VALUE=DATE:20250710', 'RRULE:FREQ=YEARLY;BYMONTH=7;BYDAY=2TH'),
+        *event('three', 'Every 3 days', f'DTSTART;{BA}:20260704T070000', 'RRULE:FREQ=DAILY;INTERVAL=3;COUNT=4'),
+        *event('floating', 'Floating', 'DTSTART:20260708T093000', 'DTEND:20260708T100000'),
+        *event('outlook', 'Outlook call', 'DTSTART;TZID="Eastern Standard Time":20260708T090000', 'DTEND;TZID="Eastern Standard Time":20260708T093000'),
+        *event('workshop', 'Workshop', 'DTSTART:20260709T150000Z', 'DURATION:PT1H30M'),
+        *event('movie', 'Movie', f'DTSTART;{BA}:20260710T200000', f'DTEND;{BA}:20260710T220000', f'RDATE;{BA}:20260712T200000'),
+        *event('conf', 'Conference', f'DTSTART;{BA}:20260705T090000', f'DTEND;{BA}:20260706T180000'),
+        # a zone the file names but does not describe: Windows is asked (18:00 in Madrid's summer = 13:00 in Buenos Aires)
+        *event('madrid', 'Madrid call', 'DTSTART;TZID=Europe/Madrid:20260715T180000', 'DTEND;TZID=Europe/Madrid:20260715T190000'),
+    ),
+    'cal-empty': ics(*event('old', 'Long ago', 'DTSTART:20260105T120000Z', 'DTEND:20260105T130000Z')),
+}
+
 # name -> (forecast, render arguments)
 SCENES = {
     'clear': (forecast((24, 0, 1)), [f'now={DAY}T10:30']),
@@ -60,6 +126,11 @@ SCENES = {
     'stale': (forecast((23, 2, 1), [(17, 20, 61, 70)]), [f'now={DAY}T15:10', 'age=400']),
     'nocity': (None, ['nocity']),
     'notfound': (None, ['notfound', 'city=Atlantis']),
+    'cal': (forecast((23, 2, 1), [(17, 20, 61, 70), (30, 34, 3, 20)]), [f'now={DAY}T13:10', 'tz=-180']),
+    'cal-rules': (forecast((12, 0, 1)), ['now=2026-07-06T08:00', 'tz=-180', 'days=60', 'rows=30']),
+    'cal-empty': (forecast((24, 0, 1)), [f'now={DAY}T10:30', 'tz=-180']),
+    'cal-loading': (forecast((24, 0, 1)), [f'now={DAY}T10:30', 'cal=loading']),
+    'cal-failed': (forecast((24, 0, 1)), [f'now={DAY}T10:30', 'cal=failed']),
 }
 
 # file name -> (what, scene, extra arguments)
@@ -72,6 +143,11 @@ SHOTS = {
     'tip-rain-later.png': ('tip', 'rain-later', []),
     'tip-thunder-later.png': ('tip', 'thunder-later', []),
     'tip-light.png': ('tip', 'rain-later', ['light']),
+    'strip-calendar.png': ('strip', 'cal', []),
+    'strip-calendar-light.png': ('strip', 'cal', ['light']),
+    'strip-calendar-only.png': ('strip', 'cal', ['noweather', f'now={DAY}T17:00']),
+    'tip-calendar.png': ('caltip', 'cal', []),
+    'tip-calendar-light.png': ('caltip', 'cal', ['light']),
 }
 ICON_SHEET = ['clear', 'night', 'rain-later', 'night-cloudy', 'cloudy', 'fog', 'raining', 'snow', 'thunder']
 
@@ -79,8 +155,13 @@ ICON_SHEET = ['clear', 'night', 'rain-later', 'night-cloudy', 'cloudy', 'fog', '
 def run(exe: str, tmp: str, what: str, scene: str, extra: list[str]) -> str:
     """Runs --render for a scene; returns the path of what it wrote."""
     data, args = SCENES[scene]
-    out = os.path.join(tmp, f'{what}-{scene}-{"-".join(extra) or "x"}.out')
-    cmd = [exe, '--render', what, out, *args, *extra]
+    out = os.path.join(tmp, f'{what}-{scene}-{re.sub("[^A-Za-z0-9=,]", "_", "-".join(extra)) or "x"}.out')
+    cmd = [exe, '--render', what, out, *args, *extra]  # of two equal arguments the later one wins
+    if scene in CALENDARS:
+        path = os.path.join(tmp, scene + '.ics')
+        with open(path, 'w', encoding='utf-8', newline='') as f:
+            f.write(CALENDARS[scene])
+        cmd.append('ics=' + path)
     if data is not None:
         path = os.path.join(tmp, scene + '.json')
         with open(path, 'w') as f:
