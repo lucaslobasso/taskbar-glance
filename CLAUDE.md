@@ -12,8 +12,10 @@ Two segments (`Strip` kinds): 0 = weather (`Weather.cs`), 1 = calendar (`Calenda
 - `dotnet publish src/TaskbarGlance.csproj -c Release -o out` (needs VS "Desktop development with C++" for the linker).
 - `.\install.ps1 [-City "Name"]` builds + installs to `%LOCALAPPDATA%\TaskbarGlance` + HKCU Run + starts it.
   `bootstrap.ps1` is the one-line install of a release; both share `install-lib.ps1`. Keep them PowerShell 5.1-compatible.
-- Release: bump `<Version>` in the csproj, add a CHANGELOG entry, merge, push tag `vX.Y.Z` (release.yml builds the exe +
-  .sha256 and publishes the release that bootstrap.ps1 downloads; the notes come from the CHANGELOG section).
+- Release: bump `<Version>` in the csproj and add its `## [X.Y.Z]` CHANGELOG section in the PR; merging it is the
+  release. `release.yml` runs on every push to main and publishes (exe + .sha256, notes from the CHANGELOG, tag
+  created by `gh release create`) only when that version has no release yet; it fails if the CHANGELOG section is
+  missing. A hand-pushed `vX.Y.Z` tag still works but must match the csproj.
 - `python tests/check.py` checks what the strip and popups say for made-up forecasts and calendars;
   `python docs/render.py` redraws the README pictures. Both use the hidden `--render strip|tip|caltip|text` mode (no
   window, no settings, no network) and the scenarios in `docs/render.py` (`SCENES`, and `CALENDARS` for the .ics text).
@@ -24,6 +26,10 @@ Two segments (`Strip` kinds): 0 = weather (`Weather.cs`), 1 = calendar (`Calenda
 - `GLANCE_DIR=<folder>` moves settings, saved forecast and log there; such a copy may run next to the installed one.
 - `GLANCE_OFFLINE=1` never fetches and re-reads `weather.json` (an Open-Meteo answer) when it changes. The calendars
   are then the `*.ics` files in that folder.
+- `GLANCE_UPDATE_URL=<address>` replaces GitHub's "latest release" address for **Check for updates** (`Update.cs`);
+  `GLANCE_DEBUG_OPEN=update` runs the check at startup. To test the whole update: serve a made-up `latest.json`
+  (`tag_name`, `assets[].name` + `browser_download_url`), an exe built with `-p:Version=X` and its `.sha256` from
+  `python -m http.server`, and run a copy of the exe from a scratch folder (it replaces itself).
 - `GLANCE_DEBUG=1` logs renders and fetches to `glance.log`; `GLANCE_DEBUG_TIP=weather|calendar` opens that popup at
   startup.
 - Only one `GLANCE_DIR` copy runs at a time (they share one mutex): stop the previous test copy first, by its path, so
@@ -52,6 +58,9 @@ Two segments (`Strip` kinds): 0 = weather (`Weather.cs`), 1 = calendar (`Calenda
   "calendar 2"; `calendar.json` keys the saved events by a hash of the address.
 - `Calendar.ScheduleTick` sets one timer for the next moment the text changes (an event of today starts or ends, or
   midnight). Anything that changes the events or the clock must call it again.
+- The updater never runs by itself (no background request). It renames the running exe to `.exe.old` (Windows allows
+  that), moves the download in, closes the single-instance mutex and starts the new exe; the `.old` is deleted at
+  the next start or trim. The download must match the release's SHA-256 or nothing changes.
 - The trim (`T_TRIM`) uses an aggressive, compacting GC: with a plain `GC.Collect()` private memory stayed at 6 to 8 MB
   after calendar downloads; now it returns to about 5 MB.
 

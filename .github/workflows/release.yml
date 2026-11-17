@@ -1,11 +1,20 @@
 name: Release
 
+# Publishes a release whenever main carries a version that has none yet: bump <Version> in the csproj and add its
+# CHANGELOG section in a pull request, and merging it is the release. A merge that does not change the version
+# publishes nothing. Pushing a tag v* by hand still works.
 on:
   push:
+    branches: [main]
     tags: ['v*']
+  workflow_dispatch:
 
 permissions:
   contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
   release:
@@ -13,29 +22,62 @@ jobs:
     defaults:
       run:
         shell: pwsh
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
+      - name: Version
+        id: version
+        run: |
+          $m = [regex]::Match((Get-Content src/TaskbarGlance.csproj -Raw), '<Version>([^<]+)</Version>')
+          if (-not $m.Success) { throw 'No <Version> in src/TaskbarGlance.csproj.' }
+          $version = $m.Groups[1].Value.Trim()
+          $tag = "v$version"
+          if ('${{ github.ref_type }}' -eq 'tag' -and '${{ github.ref_name }}' -ne $tag) {
+            throw "Tag ${{ github.ref_name }} does not match the version in the csproj ($version)."
+          }
+          gh release view $tag --repo '${{ github.repository }}' *> $null
+          $exists = $LASTEXITCODE -eq 0
+          $global:LASTEXITCODE = 0
+          if ($exists) { Write-Host "Release $tag already exists: nothing to publish." }
+          else {
+            Write-Host "Publishing $tag."
+            if ((Get-Content CHANGELOG.md -Raw) -notmatch "(?m)^## \[$([regex]::Escape($version))\]") {
+              throw "CHANGELOG.md has no '## [$version]' section: add the notes for this version."
+            }
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          "publish=$(if ($exists) { 'false' } else { 'true' })" >> $env:GITHUB_OUTPUT
       - uses: actions/setup-dotnet@v4
+        if: steps.version.outputs.publish == 'true'
         with:
           dotnet-version: 11.0.x
       - name: Build (Native AOT)
+        if: steps.version.outputs.publish == 'true'
         run: dotnet publish src/TaskbarGlance.csproj -c Release -o out --nologo
+      - name: Checks
+        if: steps.version.outputs.publish == 'true'
+        run: python tests/check.py
       - name: Checksum
+        if: steps.version.outputs.publish == 'true'
         run: |
           $hash = (Get-FileHash out/TaskbarGlance.exe -Algorithm SHA256).Hash
           "$hash  TaskbarGlance.exe" | Set-Content -NoNewline out/TaskbarGlance.exe.sha256
       - name: Notes from CHANGELOG
+        if: steps.version.outputs.publish == 'true'
         run: |
-          $version = '${{ github.ref_name }}'.TrimStart('v')
+          $version = '${{ steps.version.outputs.version }}'
           $text = Get-Content CHANGELOG.md -Raw
           $m = [regex]::Match($text, "(?s)## \[$([regex]::Escape($version))\][^\n]*\n(.*?)(?=\n## \[|\n\[[^\]]+\]: |\z)")
           $notes = if ($m.Success) { $m.Groups[1].Value.Trim() } else { "Taskbar Glance $version" }
           $notes += "`n`n**Install:** ``irm https://raw.githubusercontent.com/lucaslobasso/taskbar-glance/main/bootstrap.ps1 | iex``"
           Set-Content notes.md $notes
       - name: Publish
-        env:
-          GH_TOKEN: ${{ github.token }}
+        if: steps.version.outputs.publish == 'true'
         run: |
-          $releaseArgs = @('${{ github.ref_name }}', 'out/TaskbarGlance.exe', 'out/TaskbarGlance.exe.sha256', '--title', '${{ github.ref_name }}', '--notes-file', 'notes.md')
-          if ('${{ github.ref_name }}' -match '-') { $releaseArgs += '--prerelease' } # an empty '' argument would be read as a file
+          $tag = '${{ steps.version.outputs.tag }}'
+          # creates the tag on this commit when it does not exist yet
+          $releaseArgs = @($tag, 'out/TaskbarGlance.exe', 'out/TaskbarGlance.exe.sha256', '--title', $tag, '--notes-file', 'notes.md', '--target', '${{ github.sha }}')
+          if ($tag -match '-') { $releaseArgs += '--prerelease' } # an empty '' argument would be read as a file
           gh release create @releaseArgs
