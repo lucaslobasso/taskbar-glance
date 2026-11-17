@@ -10,7 +10,7 @@
   <img src="docs/tip-thunder-later.png" alt="The weather popup: Buenos Aires, 27 degrees, overcast; rain from 16:00 and a thunderstorm from 18:00; the forecast at 14:00 and 20:00 today and 08:00, 14:00 and 20:00 tomorrow" width="300" valign="bottom">
   <img src="docs/tip-calendar.png" alt="The calendar popup: November 2026 as a grid with today marked and a dot under the days that have events, then the coming events: the dentist today at 15:30, a birthday tomorrow, a call with New York on Wednesday" width="300" valign="bottom">
   <br>
-  <img src="docs/strip-calendar.png" alt="The strip next to the tray: partly cloudy, 23 degrees, an amber exclamation mark, then a calendar icon and Today 15:30 Dentist" width="330">
+  <img src="docs/strip-calendar.png" alt="The strip next to the tray: partly cloudy, 23 degrees, an amber exclamation mark, then Today 15:30 Dentist" width="290">
 </p>
 
 The weather and your next calendar event in the Windows 11 taskbar: the temperature, an icon for the sky, a mark when rain or a thunderstorm is announced for later today, and what is next on your calendar. Hover for the forecast or for the month and the coming events, click for the full page. It is one tiny native exe that sleeps between a small request every 30 minutes for the weather and one every 15 for each calendar.
@@ -125,9 +125,9 @@ The app adds a `location` block with the coordinates it found for the city. Edit
 | No city yet | <img src="docs/strip-nocity.png" alt="Partly cloudy icon and the text Set city" width="190"> |
 | Hover, rain later today | <img src="docs/tip-rain-later.png" alt="Popup with an amber warning and the forecast rows" width="300"> |
 | Hover, light taskbar | <img src="docs/tip-light.png" alt="The same popup in the light theme" width="300"> |
-| With a calendar: the next event | <img src="docs/strip-calendar.png" alt="Weather, then a calendar icon and Today 15:30 Dentist" width="330"> |
-| The same on a light taskbar | <img src="docs/strip-calendar-light.png" alt="The same strip on a light taskbar" width="330"> |
-| `showWeather: false`, nothing left today | <img src="docs/strip-calendar-only.png" alt="A calendar icon and Tomorrow, Ana's birthday" width="230"> |
+| With a calendar: the next event | <img src="docs/strip-calendar.png" alt="Weather, then Today 15:30 Dentist" width="290"> |
+| The same on a light taskbar | <img src="docs/strip-calendar-light.png" alt="The same strip on a light taskbar" width="290"> |
+| `showWeather: false`, nothing left today | <img src="docs/strip-calendar-only.png" alt="Tomorrow, Ana's birthday" width="190"> |
 | Hover on the calendar | <img src="docs/tip-calendar.png" alt="The month grid with today on a blue disc and dots under the days with events, then eight events and plus 7 more" width="300"> |
 | The same, light taskbar | <img src="docs/tip-calendar-light.png" alt="The calendar popup in the light theme" width="300"> |
 

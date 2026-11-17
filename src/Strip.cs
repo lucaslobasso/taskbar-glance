@@ -18,12 +18,9 @@ static unsafe class Strip
     public static bool? LightOverride;           // --render
 
     record struct Region(int X0, int X1, int Kind);
-    /// <summary>One segment: optional icon (a sky, or the calendar page), text, optional badge (1 = rain later today,
-    /// 2 = thunder later today).</summary>
-    record struct Item(int Kind, Sky? Icon, bool Night, string Text, int Badge, bool Page = false)
-    {
-        public readonly bool HasIcon => Icon != null || Page;
-    }
+    /// <summary>One segment: optional icon, text, optional badge (1 = rain later today, 2 = thunder later today).
+    /// The calendar is text only.</summary>
+    record struct Item(int Kind, Sky? Icon, bool Night, string Text, int Badge);
     static Region[] regions = [];
 
     static nint taskbar, tray, hookLoc, hookFg, hookFgLoc, fgWin;
@@ -143,7 +140,7 @@ static unsafe class Strip
             }
             else items.Add(new Item(WeatherKind, Sky.Cloudy, false, "–", 0)); // no reading yet, or it is too old to show
         }
-        if (Calendar.Configured) items.Add(new Item(CalendarKind, null, false, Calendar.StripText(), 0, Page: true));
+        if (Calendar.Configured) items.Add(new Item(CalendarKind, null, false, Calendar.StripText(), 0));
         return items;
     }
 
@@ -164,7 +161,7 @@ static unsafe class Strip
         if (dpi == 0) dpi = 96;
 
         var sig = $"{tb.Left},{tb.Top},{tb.Right},{tb.Bottom},{tr.Left},{dpi},{light},{Settings.OffsetX},{Settings.Left}|" +
-                  string.Join(";", items.Select(i => $"{i.Kind}:{i.Icon}:{i.Night}:{i.Text}:{i.Badge}:{i.Page}"));
+                  string.Join(";", items.Select(i => $"{i.Kind}:{i.Icon}:{i.Night}:{i.Text}:{i.Badge}"));
         if (!force && sig == lastSig && visible) return;
         lastSig = sig;
 
@@ -211,7 +208,7 @@ static unsafe class Strip
             var it = items[i];
             GetTextExtentPoint32W(dc, it.Text, it.Text.Length, out var sz);
             textW[i] = sz.Cx; textH = Math.Max(textH, sz.Cy);
-            widths[i] = (it.HasIcon ? iconD + (it.Text.Length > 0 ? gap : 0) : 0) + sz.Cx + (it.Badge != 0 ? badgeGap + badgeD : 0);
+            widths[i] = (it.Icon != null ? iconD + (it.Text.Length > 0 ? gap : 0) : 0) + sz.Cx + (it.Badge != 0 ? badgeGap + badgeD : 0);
             W += widths[i] + (i < items.Count - 1 ? groupGap : 0);
         }
         W += pad;
@@ -233,7 +230,7 @@ static unsafe class Strip
         {
             var it = items[i];
             starts[i] = x;
-            int tx = x + (it.HasIcon ? iconD + (it.Text.Length > 0 ? gap : 0) : 0);
+            int tx = x + (it.Icon != null ? iconD + (it.Text.Length > 0 ? gap : 0) : 0);
             spans[i] = (tx, tx + textW[i]);
             TextOutW(dc, tx, ty, it.Text, it.Text.Length);
             int x0 = x;
@@ -257,7 +254,6 @@ static unsafe class Strip
         {
             var it = items[i];
             if (it.Icon is { } sky) Icons.Draw(sky, it.Night, starts[i] + iconD / 2f, cy, iconD, light);
-            else if (it.Page) Icons.CalendarPage(starts[i] + iconD / 2f, cy, iconD, light);
             if (it.Badge != 0) Icons.Badge(spans[i].x1 + badgeGap + badgeD / 2f, cy, badgeD, it.Badge == 2, light);
         }
 
@@ -329,7 +325,7 @@ static unsafe class Strip
 
     /// <summary>The strip's content in words (tests).</summary>
     public static string Describe() =>
-        string.Join(" | ", BuildItems().Select(i => $"{(i.Icon is { } s ? s + (i.Night ? " night" : " day") : i.Page ? "calendar" : "no icon")}, \"{i.Text}\", badge {i.Badge switch { 1 => "rain", 2 => "thunder", _ => "none" }}"));
+        string.Join(" | ", BuildItems().Select(i => $"{(i.Icon is { } s ? s + (i.Night ? " night" : " day") : "no icon")}, \"{i.Text}\", badge {i.Badge switch { 1 => "rain", 2 => "thunder", _ => "none" }}"));
 
     static int R(float v) => (int)MathF.Round(v);
 
