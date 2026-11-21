@@ -13,6 +13,20 @@ function Stop-Glance {
     Start-Sleep -Milliseconds 300
 }
 
+# Start menu shortcut, so the strip can be reopened by itself after it was closed (search "Taskbar Glance").
+function Set-StartMenuShortcut([string]$Exe) {
+    $lnk = Join-Path ([Environment]::GetFolderPath('Programs')) 'Taskbar Glance.lnk'
+    $s = (New-Object -ComObject WScript.Shell).CreateShortcut($lnk)
+    $s.TargetPath = $Exe
+    $s.WorkingDirectory = Split-Path $Exe
+    $s.IconLocation = "$Exe,0"
+    $s.Save()
+}
+
+function Remove-StartMenuShortcut {
+    Remove-Item (Join-Path ([Environment]::GetFolderPath('Programs')) 'Taskbar Glance.lnk') -Force -ErrorAction SilentlyContinue
+}
+
 # Copies the exe into place, writes the first settings, sets autostart and starts it.
 function Install-GlanceExe([string]$Source, [string]$City = '', [switch]$NoAutostart) {
     $dest = Get-GlanceDir
@@ -29,6 +43,7 @@ function Install-GlanceExe([string]$Source, [string]$City = '', [switch]$NoAutos
 
     if ($NoAutostart) { Remove-ItemProperty $RunKey -Name TaskbarGlance -ErrorAction SilentlyContinue }
     else { Set-ItemProperty $RunKey -Name TaskbarGlance -Value "`"$exe`"" }
+    Set-StartMenuShortcut $exe
     Start-Process $exe
     $size = [math]::Round((Get-Item $exe).Length / 1MB, 1)
     Write-Host "Installed $exe ($size MB) and started it." -ForegroundColor Green
@@ -39,6 +54,7 @@ function Install-GlanceExe([string]$Source, [string]$City = '', [switch]$NoAutos
 function Uninstall-Glance([switch]$Purge) {
     Stop-Glance
     Remove-ItemProperty $RunKey -Name TaskbarGlance -ErrorAction SilentlyContinue
+    Remove-StartMenuShortcut
     $dest = Get-GlanceDir
     if ($Purge) { Remove-Item $dest -Recurse -Force -ErrorAction SilentlyContinue }
     else { Remove-Item (Join-Path $dest 'TaskbarGlance.exe') -Force -ErrorAction SilentlyContinue }

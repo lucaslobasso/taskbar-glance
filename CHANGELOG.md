@@ -2,6 +2,11 @@
 
 All notable changes to this project. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- A **Taskbar Glance** Start menu shortcut, made by the installer and removed by the uninstaller, to reopen the strip by itself after closing it (search "Taskbar Glance"). Installer change only; the exe is unchanged.
+
 ## [1.2.0] - 2026-11-17
 
 Updates without the command line.
