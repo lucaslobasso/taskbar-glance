@@ -388,7 +388,7 @@ static unsafe class Strip
 
     static void Menu()
     {
-        const int Open = 1, Refresh_ = 2, OpenCal = 3, SetUpCal = 4, CheckUpdate = 5, Celsius = 10, Fahrenheit = 11, Auto = 40, Edit = 50, PosLeft = 60, PosRight = 61, CalEvent = 70, CalIcon = 71, Exit = 99;
+        const int Open = 1, Refresh_ = 2, OpenCal = 3, SetUpCal = 4, CheckUpdate = 5, Celsius = 10, Fahrenheit = 11, Auto = 40, Edit = 50, PosLeft = 60, PosRight = 61, CalEvent = 70, CalIcon = 71, CutoffOff = 80, CutoffDay = 81 /* + DayOfWeek */, Exit = 99;
         var pos = CreatePopupMenu();
         AppendMenuW(pos, Settings.Left ? MF_CHECKED : 0, PosLeft, "Left side of the taskbar");
         AppendMenuW(pos, Settings.Left ? 0 : MF_CHECKED, PosRight, "Right side, next to the tray");
@@ -400,7 +400,17 @@ static unsafe class Strip
         AppendMenuW(cal, Settings.CalendarIcon ? MF_CHECKED : 0, CalIcon, Settings.CalendarIconFreeDays > 0
             ? $"Show an icon while nothing is on for {Settings.CalendarIconFreeDays} day{(Settings.CalendarIconFreeDays == 1 ? "" : "s")}"
             : "Show an icon");
-        if (Settings.CalendarCutoffDay is { } cd) AppendMenuW(cal, MF_GRAYED, 0, $"Only until {cd} (glance.json)");
+        // "calendarCutoffDay": later events only in the popup, the icon on the strip. Weekdays in the PC's week order.
+        var cutoff = CreatePopupMenu();
+        AppendMenuW(cutoff, Settings.CalendarCutoffDay is null ? MF_CHECKED : 0, CutoffOff, "Any day");
+        AppendMenuW(cutoff, MF_SEPARATOR, 0, null);
+        for (int i = 0; i < 7; i++)
+        {
+            var day = (DayOfWeek)(((int)Calendar.WeekStart + i) % 7);
+            AppendMenuW(cutoff, Settings.CalendarCutoffDay == day ? MF_CHECKED : 0, (nuint)(CutoffDay + (int)day), day.ToString());
+        }
+        AppendMenuW(cal, MF_SEPARATOR, 0, null);
+        AppendMenuW(cal, MF_POPUP, (nuint)cutoff, Settings.CalendarCutoffDay is { } cd ? $"Show events until {cd}" : "Show events until");
         var m = CreatePopupMenu();
         if (Settings.ShowWeather) AppendMenuW(m, 0, Open, "Open forecast");
         if (Calendar.Configured) AppendMenuW(m, 0, OpenCal, "Open calendar");
@@ -435,6 +445,8 @@ static unsafe class Strip
             case Fahrenheit: Settings.Fahrenheit = true; Settings.Save(); Refresh(); break;
             case CalEvent: Settings.CalendarIcon = false; Settings.Save(); Refresh(); break;
             case CalIcon: Settings.CalendarIcon = true; Settings.Save(); Refresh(); break;
+            case CutoffOff: Settings.CalendarCutoffDay = null; Settings.Save(); Refresh(); break;
+            case >= CutoffDay and < CutoffDay + 7: Settings.CalendarCutoffDay = (DayOfWeek)(cmd - CutoffDay); Settings.Save(); Refresh(); break;
             case PosLeft: Settings.Left = true; Settings.Save(); Refresh(force: true); break;
             case PosRight: Settings.Left = false; Settings.Save(); Refresh(force: true); break;
             case Auto: Shell.Autostart = !Shell.Autostart; break;
