@@ -42,7 +42,19 @@ bb = glyph.getbbox(); gx, gy = (bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2
 small = glyph.resize((round(W * SCALE), round(W * SCALE)), Image.LANCZOS)
 glyph = Image.new('L', (W, W), 0)
 glyph.paste(small, (round(W / 2 - gx * SCALE), round(W / 2 - gy * SCALE)))  # centred on the tile
-im.paste(Image.new('RGBA', (W, W), GLYPH), (0, 0), ImageChops.multiply(glyph, mask))
+# depth like the starburst on Claude's icon: about 15% darker from the top of the glyph to its bottom, and an inner
+# shadow (the inside darker than the edges) that grows over the bottom half; the shade leans toward the tile's blue
+bb = glyph.getbbox()
+inner = ImageChops.multiply(glyph.filter(ImageFilter.GaussianBlur(W * 0.03)), glyph)  # ~255 deep inside, lower at edges
+shade = Image.new('L', (W, W), 0); sp = shade.load(); ip = inner.load(); gp = glyph.load()
+SHADOW = (190, 205, 228)  # what full shade looks like: white pulled toward the tile
+for y in range(bb[1], bb[3]):
+    t = (y - bb[1]) / max(1, bb[3] - bb[1] - 1)          # 0 top .. 1 bottom
+    lower = max(0.0, (t - 0.45) / 0.55)                    # inner shadow only in the bottom half
+    for x in range(bb[0], bb[2]):
+        if gp[x, y]: sp[x, y] = round(255 * min(1.0, 0.42 * t + 0.55 * lower * ip[x, y] / 255))
+fill = Image.composite(Image.new('RGBA', (W, W), SHADOW + (255,)), Image.new('RGBA', (W, W), GLYPH), shade)
+im.paste(fill, (0, 0), ImageChops.multiply(glyph, mask))
 im = im.resize((256, 256), Image.LANCZOS)
 if out.endswith('.ico'): im.save(out, sizes=[(16,16),(20,20),(24,24),(32,32),(40,40),(48,48),(64,64),(128,128),(256,256)])
 else: im.save(out)
