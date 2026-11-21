@@ -117,15 +117,19 @@ static class Calendar
     /// ("Nov 26 · Thanksgiving"). "Now · Standup" while it is going on.</summary>
     /// <summary>The icon instead of the next event: with "calendarStyle": "icon", always, or with
     /// "calendarIconFreeDays": N only while nothing is on today or the next N - 1 days (an ongoing event counts).
-    /// Looks no further than "calendarDays".</summary>
+    /// With "calendarCutoffDay" (either style) also when the next event is after the next occurrence of that weekday
+    /// (today counts). The icon wins if either rule says icon. Looks no further than "calendarDays".</summary>
     public static bool ShowsIcon()
     {
-        if (!Settings.CalendarIcon) return false;
-        if (Settings.CalendarIconFreeDays == 0 || !HasData) return true;
+        bool free = Settings.CalendarIcon && Settings.CalendarIconFreeDays > 0;
+        if (Settings.CalendarIcon && !free) return true;
+        if (!free && Settings.CalendarCutoffDay is null) return false;
+        if (!HasData) return Settings.CalendarIcon;
         if (Next() is not { } n) return true;
         if (n.Ongoing) return false;
         var today = Now.Date; var day = n.Event.Start.Date < today ? today : n.Event.Start.Date;
-        return (day - today).Days >= Settings.CalendarIconFreeDays;
+        if (free && (day - today).Days >= Settings.CalendarIconFreeDays) return true;
+        return Settings.CalendarCutoffDay is { } c && (day - today).Days > ((int)c - (int)today.DayOfWeek + 7) % 7;
     }
 
     public static string StripText()

@@ -126,7 +126,7 @@ static unsafe class Program
     /// made-up data, with no window, no settings file and no network.
     /// TaskbarGlance.exe --render strip|tip|caltip|text out [data=forecast.json] [now=2026-11-16T15:10] [age=12] [city=Name]
     /// [nocity] [notfound] [unit=F] [light] [warn=50] [hours=8,14,20] [dpi=144] [height=48]
-    /// [ics=a.ics,b.ics] [cal=loading|failed] [tz=-180] [week=sunday] [days=14] [rows=8] [title=24] [calicon] [free=0] [noweather]</summary>
+    /// [ics=a.ics,b.ics] [cal=loading|failed] [tz=-180] [week=sunday] [days=14] [rows=8] [title=24] [calicon] [free=0] [cutoff=wednesday] [noweather]</summary>
     static int Render(string[] args)
     {
         var set = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -152,6 +152,7 @@ static unsafe class Program
         Settings.CalendarTitleLength = int.Parse(Get("title", "24"), inv);
         Settings.CalendarIcon = set.ContainsKey("calicon");
         Settings.CalendarIconFreeDays = int.Parse(Get("free", "0"), inv);
+        Settings.CalendarCutoffDay = Enum.TryParse<DayOfWeek>(Get("cutoff", ""), true, out var cut) ? cut : null;
         Calendar.NowOverride = Weather.NowOverride;
         Calendar.ZoneOverride = TimeSpan.FromMinutes(double.Parse(Get("tz", "0"), inv));
         Calendar.WeekStartOverride = Get("week", "monday").Equals("sunday", StringComparison.OrdinalIgnoreCase) ? DayOfWeek.Sunday : DayOfWeek.Monday;

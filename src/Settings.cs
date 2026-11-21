@@ -36,6 +36,7 @@ static class Settings
     public static int CalendarRows = 8;        // events listed in the popup
     public static bool CalendarIcon;           // "calendarStyle": "icon" = a calendar icon on the strip instead of the next event
     public static int CalendarIconFreeDays;    // with the icon: 0 = always; N = only while nothing is coming in the next N days
+    public static DayOfWeek? CalendarCutoffDay; // "calendarCutoffDay": the strip shows events only up to this weekday, the icon after it; null = off
 
     // location block: what the city resolved to. Edit latitude/longitude by hand for an exact spot.
     public static string ResolvedFor = "";     // the "city" text these coordinates belong to
@@ -75,6 +76,11 @@ static class Settings
             CalendarRows = Math.Clamp(Json.Int(r, "calendarRows", 8), 1, 30);
             CalendarIcon = string.Equals(Json.Str(r, "calendarStyle"), "icon", StringComparison.OrdinalIgnoreCase);
             CalendarIconFreeDays = Math.Clamp(Json.Int(r, "calendarIconFreeDays", 0), 0, 60);
+            CalendarCutoffDay = Json.Str(r, "calendarCutoffDay")?.Trim().ToLowerInvariant() switch
+            {
+                "sunday" => DayOfWeek.Sunday, "monday" => DayOfWeek.Monday, "tuesday" => DayOfWeek.Tuesday, "wednesday" => DayOfWeek.Wednesday,
+                "thursday" => DayOfWeek.Thursday, "friday" => DayOfWeek.Friday, "saturday" => DayOfWeek.Saturday, _ => null
+            };
             ResolvedFor = ""; Place = ""; Latitude = Longitude = 0;
             if (r.TryGetProperty("location", out var loc) && loc.ValueKind == JsonValueKind.Object
                 && Json.Num(loc, "latitude") is { } la && Json.Num(loc, "longitude") is { } lo)
@@ -142,6 +148,7 @@ static class Settings
                 w.WriteNumber("calendarRows", CalendarRows);
                 w.WriteString("calendarStyle", CalendarIcon ? "icon" : "event");
                 w.WriteNumber("calendarIconFreeDays", CalendarIconFreeDays);
+                w.WriteString("calendarCutoffDay", CalendarCutoffDay?.ToString().ToLowerInvariant() ?? "");
                 if (ResolvedFor.Length > 0)
                 {
                     w.WriteStartObject("location");
