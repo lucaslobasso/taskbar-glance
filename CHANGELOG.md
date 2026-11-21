@@ -2,6 +2,11 @@
 
 All notable changes to this project. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.3.1] - 2026-11-21
+
+### Fixed
+- When Taskbar Glance started after Claude Taskbar, the two strips could overlap: Glance told the Claude strip to move while drawing, before its window was shown, and the Claude strip only steps past a visible Glance. Glance now tells it again once it is visible.
+
 ## [1.3.0] - 2026-11-21
 
 An icon, and a way back after closing the strip.

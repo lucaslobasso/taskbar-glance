@@ -186,7 +186,7 @@ static unsafe class Strip
         lastSig = sig;
 
         Render(items, tb, tr, light);
-        if (!visible) { ShowWindow(Hwnd, SW_SHOWNA); visible = true; }
+        if (!visible) { ShowWindow(Hwnd, SW_SHOWNA); visible = true; NotifyNeighbors(); } // the Claude strip only docks past a visible strip
         SetWindowPos(Hwnd, -1 /* HWND_TOPMOST */, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE); // above the (topmost) taskbar
     }
 
