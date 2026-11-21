@@ -22,7 +22,10 @@ static unsafe class Strip
     record struct Region(int X0, int X1, int Kind);
     /// <summary>One segment: optional icon, text, optional badge (1 = rain later today, 2 = thunder later today).
     /// The calendar is text only.</summary>
-    record struct Item(int Kind, Sky? Icon, bool Night, string Text, int Badge);
+    record struct Item(int Kind, Sky? Icon, bool Night, string Text, int Badge, bool Page = false)
+    {
+        public readonly bool HasIcon => Icon != null || Page; // Page = the calendar icon
+    }
     static Region[] regions = [];
 
     static nint taskbar, tray, hookLoc, hookFg, hookFgLoc, fgWin;
@@ -160,7 +163,9 @@ static unsafe class Strip
             }
             else items.Add(new Item(WeatherKind, Sky.Cloudy, false, "–", 0)); // no reading yet, or it is too old to show
         }
-        if (Calendar.Configured) items.Add(new Item(CalendarKind, null, false, Calendar.StripText(), 0));
+        if (Calendar.Configured)
+            items.Add(Calendar.ShowsIcon() ? new Item(CalendarKind, null, false, "", 0, Page: true)
+                                           : new Item(CalendarKind, null, false, Calendar.StripText(), 0));
         return items;
     }
 
@@ -181,12 +186,12 @@ static unsafe class Strip
         if (dpi == 0) dpi = 96;
 
         var sig = $"{tb.Left},{tb.Top},{tb.Right},{tb.Bottom},{tr.Left},{dpi},{light},{Settings.OffsetX},{Settings.Left}|" +
-                  string.Join(";", items.Select(i => $"{i.Kind}:{i.Icon}:{i.Night}:{i.Text}:{i.Badge}"));
+                  string.Join(";", items.Select(i => $"{i.Kind}:{i.Icon}:{i.Night}:{i.Text}:{i.Badge}:{i.Page}"));
         if (!force && sig == lastSig && visible) { Raise(); return; }
         lastSig = sig;
 
         Render(items, tb, tr, light);
-        if (!visible) { ShowWindow(Hwnd, SW_SHOWNA); visible = true; }
+        if (!visible) { ShowWindow(Hwnd, SW_SHOWNA); visible = true; NotifyNeighbors(); } // the Claude strip only docks past a visible strip
         SetWindowPos(Hwnd, -1 /* HWND_TOPMOST */, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE); // above the (topmost) taskbar
     }
 
@@ -228,7 +233,7 @@ static unsafe class Strip
             var it = items[i];
             GetTextExtentPoint32W(dc, it.Text, it.Text.Length, out var sz);
             textW[i] = sz.Cx; textH = Math.Max(textH, sz.Cy);
-            widths[i] = (it.Icon != null ? iconD + (it.Text.Length > 0 ? gap : 0) : 0) + sz.Cx + (it.Badge != 0 ? badgeGap + badgeD : 0);
+            widths[i] = (it.HasIcon ? iconD + (it.Text.Length > 0 ? gap : 0) : 0) + sz.Cx + (it.Badge != 0 ? badgeGap + badgeD : 0);
             W += widths[i] + (i < items.Count - 1 ? groupGap : 0);
         }
         W += pad;
@@ -250,7 +255,7 @@ static unsafe class Strip
         {
             var it = items[i];
             starts[i] = x;
-            int tx = x + (it.Icon != null ? iconD + (it.Text.Length > 0 ? gap : 0) : 0);
+            int tx = x + (it.HasIcon ? iconD + (it.Text.Length > 0 ? gap : 0) : 0);
             spans[i] = (tx, tx + textW[i]);
             TextOutW(dc, tx, ty, it.Text, it.Text.Length);
             int x0 = x;
@@ -274,6 +279,7 @@ static unsafe class Strip
         {
             var it = items[i];
             if (it.Icon is { } sky) Icons.Draw(sky, it.Night, starts[i] + iconD / 2f, cy, iconD, light);
+            else if (it.Page) Icons.CalendarPage(starts[i] + iconD / 2f, cy, iconD, light);
             if (it.Badge != 0) Icons.Badge(spans[i].x1 + badgeGap + badgeD / 2f, cy, badgeD, it.Badge == 2, light);
         }
 
@@ -345,7 +351,7 @@ static unsafe class Strip
 
     /// <summary>The strip's content in words (tests).</summary>
     public static string Describe() =>
-        string.Join(" | ", BuildItems().Select(i => $"{(i.Icon is { } s ? s + (i.Night ? " night" : " day") : "no icon")}, \"{i.Text}\", badge {i.Badge switch { 1 => "rain", 2 => "thunder", _ => "none" }}"));
+        string.Join(" | ", BuildItems().Select(i => $"{(i.Icon is { } s ? s + (i.Night ? " night" : " day") : i.Page ? "calendar" : "no icon")}, \"{i.Text}\", badge {i.Badge switch { 1 => "rain", 2 => "thunder", _ => "none" }}"));
 
     static int R(float v) => (int)MathF.Round(v);
 
@@ -382,13 +388,19 @@ static unsafe class Strip
 
     static void Menu()
     {
-        const int Open = 1, Refresh_ = 2, OpenCal = 3, SetUpCal = 4, CheckUpdate = 5, Celsius = 10, Fahrenheit = 11, Auto = 40, Edit = 50, PosLeft = 60, PosRight = 61, Exit = 99;
+        const int Open = 1, Refresh_ = 2, OpenCal = 3, SetUpCal = 4, CheckUpdate = 5, Celsius = 10, Fahrenheit = 11, Auto = 40, Edit = 50, PosLeft = 60, PosRight = 61, CalEvent = 70, CalIcon = 71, Exit = 99;
         var pos = CreatePopupMenu();
         AppendMenuW(pos, Settings.Left ? MF_CHECKED : 0, PosLeft, "Left side of the taskbar");
         AppendMenuW(pos, Settings.Left ? 0 : MF_CHECKED, PosRight, "Right side, next to the tray");
         var units = CreatePopupMenu();
         AppendMenuW(units, Settings.Fahrenheit ? 0 : MF_CHECKED, Celsius, "Celsius (°C)");
         AppendMenuW(units, Settings.Fahrenheit ? MF_CHECKED : 0, Fahrenheit, "Fahrenheit (°F)");
+        var cal = CreatePopupMenu();
+        AppendMenuW(cal, Settings.CalendarIcon ? 0 : MF_CHECKED, CalEvent, "Show the next event");
+        AppendMenuW(cal, Settings.CalendarIcon ? MF_CHECKED : 0, CalIcon, Settings.CalendarIconFreeDays > 0
+            ? $"Show an icon while nothing is on for {Settings.CalendarIconFreeDays} day{(Settings.CalendarIconFreeDays == 1 ? "" : "s")}"
+            : "Show an icon");
+        if (Settings.CalendarCutoffDay is { } cd) AppendMenuW(cal, MF_GRAYED, 0, $"Only until {cd} (glance.json)");
         var m = CreatePopupMenu();
         if (Settings.ShowWeather) AppendMenuW(m, 0, Open, "Open forecast");
         if (Calendar.Configured) AppendMenuW(m, 0, OpenCal, "Open calendar");
@@ -396,6 +408,8 @@ static unsafe class Strip
         AppendMenuW(m, Weather.Offline ? MF_GRAYED : 0, Refresh_, "Refresh now");
         AppendMenuW(m, MF_SEPARATOR, 0, null);
         AppendMenuW(m, MF_POPUP, (nuint)units, "Temperature");
+        if (Calendar.Configured) AppendMenuW(m, MF_POPUP, (nuint)cal, "Calendar");
+        else DestroyMenu(cal);
         AppendMenuW(m, MF_POPUP, (nuint)pos, "Position");
         AppendMenuW(m, Shell.Autostart ? MF_CHECKED : 0, Auto, "Start with Windows");
         AppendMenuW(m, 0, Edit, "Open settings file");
@@ -404,7 +418,10 @@ static unsafe class Strip
         AppendMenuW(m, 0, Exit, "Exit");
         GetCursorPos(out var pt);
         SetForegroundWindow(Hwnd);
-        int cmd = TrackPopupMenu(m, TPM_RETURNCMD | TPM_RIGHTBUTTON | TPM_BOTTOMALIGN, pt.X, pt.Y, 0, Hwnd, 0);
+        // like a tray menu: its bottom on the taskbar's top edge. Lower, it would overlap the taskbar, which (with the
+        // strip it owns) is drawn above every other window, the menu included
+        GetWindowRect(Hwnd, out var sr);
+        int cmd = TrackPopupMenu(m, TPM_RETURNCMD | TPM_RIGHTBUTTON | TPM_BOTTOMALIGN, pt.X, Math.Min(pt.Y, sr.Top), 0, Hwnd, 0);
         PostMessageW(Hwnd, WM_NULL, 0, 0);
         DestroyMenu(m); // also destroys the submenus
         switch (cmd)
@@ -416,6 +433,8 @@ static unsafe class Strip
             case SetUpCal: Shell.OpenUrl("https://github.com/lucaslobasso/taskbar-glance#calendar"); break;
             case Celsius: Settings.Fahrenheit = false; Settings.Save(); Refresh(); break;
             case Fahrenheit: Settings.Fahrenheit = true; Settings.Save(); Refresh(); break;
+            case CalEvent: Settings.CalendarIcon = false; Settings.Save(); Refresh(); break;
+            case CalIcon: Settings.CalendarIcon = true; Settings.Save(); Refresh(); break;
             case PosLeft: Settings.Left = true; Settings.Save(); Refresh(force: true); break;
             case PosRight: Settings.Left = false; Settings.Save(); Refresh(force: true); break;
             case Auto: Shell.Autostart = !Shell.Autostart; break;

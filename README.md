@@ -108,6 +108,9 @@ Right-click the strip for the common ones, or edit `%LOCALAPPDATA%\TaskbarGlance
 | `calendarDays` | `14` | how many days ahead the strip and the popup look (1 to 60) |
 | `calendarRows` | `8` | events listed in the popup (1 to 30); the rest is counted as "+3 more" |
 | `calendarTitleLength` | `24` | longer titles are cut on the strip (4 to 80) |
+| `calendarStyle` | `"event"` | `"event"` = the next event on the strip, `"icon"` = a calendar icon instead (hover for the agenda). Also in the right-click menu under **Calendar** |
+| `calendarIconFreeDays` | `0` | with `"icon"`: `0` = always the icon; `N` = the icon only while nothing is on today or the next N - 1 days, the next event otherwise (0 to 60; looks no further than `calendarDays`) |
+| `calendarCutoffDay` | `""` | a weekday (`"monday"` to `"sunday"`); the strip shows an event only if it is on or before the next one of those days (today counts), and the calendar icon after that. The popup still lists everything within `calendarDays`. Works with either style; with `"icon"` + `calendarIconFreeDays` the icon shows if either rule says so. Empty = off |
 | `calendarRefreshMinutes` | `15` | time between downloads of each calendar (5 to 720) |
 
 The app adds a `location` block with the coordinates it found for the city. Edit its `latitude` and `longitude` for an exact spot.
