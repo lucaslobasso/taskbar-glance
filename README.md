@@ -46,7 +46,7 @@ The weather and your next calendar event in the Windows 11 taskbar: the temperat
 irm https://raw.githubusercontent.com/lucaslobasso/taskbar-glance/main/bootstrap.ps1 | iex
 ```
 
-It downloads `TaskbarGlance.exe` from the latest release, checks its SHA-256, installs it to `%LOCALAPPDATA%\TaskbarGlance` and starts it with Windows. Read [`bootstrap.ps1`](bootstrap.ps1) first if you like; it's short. With your city, or without autostart:
+It downloads `TaskbarGlance.exe` from the latest release, checks its SHA-256, installs it to `%LOCALAPPDATA%\TaskbarGlance` and starts it with Windows. It also adds a **Taskbar Glance** Start menu shortcut, so a closed strip reopens from Search. Read [`bootstrap.ps1`](bootstrap.ps1) first if you like; it's short. With your city, or without autostart:
 
 ```powershell
 & ([scriptblock]::Create((irm https://raw.githubusercontent.com/lucaslobasso/taskbar-glance/main/bootstrap.ps1))) -City "Buenos Aires" -NoAutostart

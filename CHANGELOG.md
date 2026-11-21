@@ -2,6 +2,19 @@
 
 All notable changes to this project. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.3.0] - 2026-11-21
+
+An icon, and a way back after closing the strip.
+
+### Added
+- An app icon: a white sun and cloud on the same blue tile as Claude Taskbar, shaded for depth like the Claude starburst, shown on the exe and the Start menu shortcut (`src/app.ico`, made by `assets/make_icon.py`).
+- A **Taskbar Glance** Start menu shortcut, made by the installer and removed by the uninstaller, to reopen the strip by itself after closing it (search "Taskbar Glance").
+
+### Fixed
+- The strip could vanish behind the taskbar and stay hidden until its next redraw: when Windows dropped its owner, the taskbar was drawn over it after opening Start or clicking the taskbar. The strip now re-owns itself and moves back on top on every foreground change.
+- Switching displays (for example "Second screen only") left the strip where the old taskbar was; it now re-attaches to the taskbar once the display change has settled.
+- Opening the strip while it is already running (the Start menu shortcut) did nothing; it now brings the running strip back.
+
 ## [1.2.0] - 2026-11-17
 
 Updates without the command line.

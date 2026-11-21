@@ -8,7 +8,7 @@ namespace TaskbarGlance;
 
 static unsafe class Program
 {
-    public const nuint T_DEBOUNCE = 1, T_REFRESH = 2, T_HOVER = 4, T_TIP = 5, T_REDOCK = 6, T_TRIM = 8, T_FSCHECK = 9, T_FSCHECK2 = 10, T_CALREFRESH = 11, T_CALTICK = 12;
+    public const nuint T_DEBOUNCE = 1, T_REFRESH = 2, T_HOVER = 4, T_TIP = 5, T_REDOCK = 6, T_TRIM = 8, T_FSCHECK = 9, T_FSCHECK2 = 10, T_CALREFRESH = 11, T_CALTICK = 12, T_SETTLE = 20;
 
     static nint watch, instance;
 
@@ -17,7 +17,13 @@ static unsafe class Program
         if (args is ["--render", _, _, ..]) { SetProcessDpiAwarenessContext(-4); return Render(args); } // pictures and tests, no window
         // a copy pointed at another folder (GLANCE_DIR) may run next to the installed one
         instance = CreateMutexW(0, 0, @"Local\TaskbarGlance." + (Environment.GetEnvironmentVariable("GLANCE_DIR") is { Length: > 0 } ? "Custom" : "Singleton"));
-        if (GetLastError() == 183 /* ERROR_ALREADY_EXISTS */) return 0;
+        if (GetLastError() == 183 /* ERROR_ALREADY_EXISTS */)
+        {
+            // already running (maybe hidden under the taskbar): ask that copy to re-attach and redraw
+            var running = FindWindowW("TaskbarGlanceStrip", null);
+            if (running != 0) PostMessageW(running, RegisterWindowMessageW("TaskbarGlance.Show"), 0, 0);
+            return 0;
+        }
         Update.Cleanup();
         SetProcessDpiAwarenessContext(-4); // per-monitor v2 (also in the manifest)
 
@@ -103,6 +109,7 @@ static unsafe class Program
             case T_FSCHECK: KillTimer(Strip.Hwnd, T_FSCHECK); Strip.RecheckFullscreen(); break;
             case T_FSCHECK2: KillTimer(Strip.Hwnd, T_FSCHECK2); Strip.RecheckFullscreen(false); break;
             case T_REDOCK: KillTimer(Strip.Hwnd, T_REDOCK); Strip.Refresh(); break;
+            case T_SETTLE: KillTimer(Strip.Hwnd, T_SETTLE); Strip.Reattach(); break;
             case T_TRIM:
                 KillTimer(Strip.Hwnd, T_TRIM);
                 if (Tooltip.Visible) break;
