@@ -7,7 +7,7 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 An icon, and a way back after closing the strip.
 
 ### Added
-- An app icon: a coral sun and cloud on a teal tile, shown on the exe and the Start menu shortcut (`src/app.ico`, made by `assets/make_icon.py`).
+- An app icon: a white sun and cloud on the same blue tile as Claude Taskbar, shown on the exe and the Start menu shortcut (`src/app.ico`, made by `assets/make_icon.py`).
 - A **Taskbar Glance** Start menu shortcut, made by the installer and removed by the uninstaller, to reopen the strip by itself after closing it (search "Taskbar Glance").
 
 ### Fixed

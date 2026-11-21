@@ -1,6 +1,7 @@
-# Makes the Taskbar Glance icon: the tile of Claude's app icon (shape, dark base, glow) in teal with a coral sun and cloud.
+# Makes the Taskbar Glance icon: the tile of Claude's app icon (shape, dark base, glow) in blue (Claude Taskbar's tile)
+# with a white sun and cloud.
 # Input: claude.exe's 256 px icon saved as PNG (only its outline is used).
-# Run from the repo root: python assets/make_icon.py claude.png src/app.ico 175 ; python assets/make_icon.py claude.png assets/icon.png 175
+# Run from the repo root: python assets/make_icon.py claude.png src/app.ico 215 ; python assets/make_icon.py claude.png assets/icon.png 215
 import sys, math, colorsys
 from PIL import Image, ImageDraw, ImageFilter, ImageChops
 
@@ -19,7 +20,8 @@ ImageDraw.Draw(gl).ellipse([int(W*0.0), int(W*0.58), int(W*1.0), int(W*1.35)], f
 bg = Image.alpha_composite(bg, gl.filter(ImageFilter.GaussianBlur(W * 0.12)))
 im = Image.new('RGBA', (W, W), (0, 0, 0, 0)); im.paste(bg, (0, 0), mask)
 
-coral = (232, 115, 76, 255)
+GLYPH = (255, 255, 255, 255)
+SCALE = 0.86  # glyph size relative to the drawing below, shrunk around its centre
 sun = Image.new('L', (W, W), 0); d = ImageDraw.Draw(sun)
 DX, DY = -0.035, 0.05
 cx, cy, sr = W*(0.42+DX), W*(0.40+DY), W*0.115
@@ -36,7 +38,11 @@ c.rounded_rectangle([int(W*(0.325+DX)), int(W*(0.60+DY)), int(W*(0.82+DX)), int(
 gap = cloud.filter(ImageFilter.MaxFilter((int(W*0.03) // 2) * 2 + 1))
 sun = ImageChops.subtract(sun, gap)          # sun hidden behind the cloud, with a thin gap around it
 glyph = ImageChops.lighter(sun, cloud)
-im.paste(Image.new('RGBA', (W, W), coral), (0, 0), ImageChops.multiply(glyph, mask))
+bb = glyph.getbbox(); gx, gy = (bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2
+small = glyph.resize((round(W * SCALE), round(W * SCALE)), Image.LANCZOS)
+glyph = Image.new('L', (W, W), 0)
+glyph.paste(small, (round(W / 2 - gx * SCALE), round(W / 2 - gy * SCALE)))  # centred on the tile
+im.paste(Image.new('RGBA', (W, W), GLYPH), (0, 0), ImageChops.multiply(glyph, mask))
 im = im.resize((256, 256), Image.LANCZOS)
 if out.endswith('.ico'): im.save(out, sizes=[(16,16),(20,20),(24,24),(32,32),(40,40),(48,48),(64,64),(128,128),(256,256)])
 else: im.save(out)
