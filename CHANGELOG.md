@@ -2,6 +2,11 @@
 
 All notable changes to this project. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.4.1] - 2026-11-21
+
+### Changed
+- The cutoff day is picked from the right-click menu: **Calendar > Show events until** lists "Any day" and the seven weekdays, with the current one checked. Before, the menu only showed a greyed reminder to edit `glance.json`.
+
 ## [1.4.0] - 2026-11-21
 
 A quieter calendar segment.
