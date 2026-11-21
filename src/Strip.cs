@@ -400,6 +400,7 @@ static unsafe class Strip
         AppendMenuW(cal, Settings.CalendarIcon ? MF_CHECKED : 0, CalIcon, Settings.CalendarIconFreeDays > 0
             ? $"Show an icon while nothing is on for {Settings.CalendarIconFreeDays} day{(Settings.CalendarIconFreeDays == 1 ? "" : "s")}"
             : "Show an icon");
+        if (Settings.CalendarCutoffDay is { } cd) AppendMenuW(cal, MF_GRAYED, 0, $"Only until {cd} (glance.json)");
         var m = CreatePopupMenu();
         if (Settings.ShowWeather) AppendMenuW(m, 0, Open, "Open forecast");
         if (Calendar.Configured) AppendMenuW(m, 0, OpenCal, "Open calendar");

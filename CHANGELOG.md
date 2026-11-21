@@ -9,6 +9,7 @@ A quieter calendar segment.
 ### Added
 - `"calendarStyle": "icon"` shows a calendar icon on the strip instead of the next event; hovering still opens the month and agenda, clicking still opens the calendar. Switch it from the right-click menu too (**Calendar**).
 - `"calendarIconFreeDays": N` shows that icon only while nothing is on for the next N days, and the next event as soon as something is coming (`0`, the default, = always the icon).
+- `"calendarCutoffDay": "friday"` (a weekday name) shows an event on the strip only if it is on or before the next such day (today counts); later ones show the calendar icon instead. The popup still lists everything. Works with either `calendarStyle`.
 
 ### Fixed
 - When Taskbar Glance started after Claude Taskbar, the two strips could overlap: Glance told the Claude strip to move while drawing, before its window was shown, and the Claude strip only steps past a visible Glance. Glance now tells it again once it is visible.

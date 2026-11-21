@@ -78,6 +78,19 @@ CASES = [
     ('cal', ['calicon', 'free=1', 'now=2026-11-16T15:45'], ['no icon, "Now · Dentist"'], ['calendar,']),     # ongoing
     ('cal', ['calicon', 'free=1', 'now=2026-11-16T17:00'], ['| calendar, "", badge none'], ['birthday", badge']),  # next is tomorrow
     ('cal', ['calicon', 'free=2', 'now=2026-11-16T17:00'], ["no icon, \"Tomorrow · Ana's birthday\""], ['calendar,']),
+    # "calendarCutoffDay"
+    ('cal', ['cutoff=wednesday'], ['no icon, "15:30 · Dentist"'], ['calendar,']),
+    ('cal', ['cutoff=monday'], ['no icon, "15:30 · Dentist"'], ['calendar,']),                             # today is the cutoff day
+    ('cal', ['cutoff=Thursday', 'now=2026-11-19T20:00'], ['| calendar, "", badge none', 'Event: Tomorrow | 10:00'], ['Standup", badge']),
+    ('cal', ['cutoff=monday', 'now=2026-11-16T17:00', 'rows=30'], ['| calendar, "", badge none', 'Event: Fri 20 Nov'], ['birthday", badge']),  # popup keeps everything
+    ('cal', ['cutoff=friday', 'now=2026-11-19T20:00'], ['no icon, "Tomorrow 10:00 · Standup"'], ['calendar,']),
+    ('cal', ['cutoff=sunday', 'now=2026-11-19T20:00'], ['no icon, "Tomorrow 10:00 · Standup"'], ['calendar,']),
+    ('cal', ['cutoff=monday', 'now=2026-11-19T20:00'], ['no icon, "Tomorrow 10:00 · Standup"'], ['calendar,']),  # the 23rd is the next Monday
+    ('cal', ['cutoff=tuesday', 'now=2026-11-17T21:00'], ["no icon, \"Ana's birthday\""], ['calendar,']),            # ongoing always counts
+    ('cal', ['cutoff=wednesday', 'calicon', 'free=1'], ['no icon, "15:30 · Dentist"'], ['calendar,']),
+    ('cal', ['cutoff=monday', 'calicon', 'free=2', 'now=2026-11-16T17:00'], ['| calendar, "", badge none'], ['birthday", badge']),  # free days allow it, cutoff does not
+    ('cal', ['cutoff=tuesday', 'calicon', 'free=1', 'now=2026-11-16T17:00'], ['| calendar, "", badge none'], ['birthday", badge']),  # cutoff allows it, free days do not
+    ('cal-empty', ['cutoff=friday'], ['| calendar, "", badge none'], ['No events']),
     ('cal-empty', ['calicon', 'free=3'], ['| calendar, "", badge none'], ['No events']),  # nothing coming at all
     # Monday 6 July, 08:00: one of each repeat rule; New York is on summer time (09:00 there = 10:00 here)
     ('cal-rules', [], ['no icon, "10:00 · NY sync"', 'Header: July 2026 | Mon 6',
