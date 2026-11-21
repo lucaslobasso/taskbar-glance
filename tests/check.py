@@ -72,6 +72,13 @@ CASES = [
     ('cal', ['tz=0', 'now=2026-11-16T16:10'], ['no icon, "18:30 · Dentist"', 'Event: Wed 18 Nov | 14:00 – 15:00 | Call with New York',
                                                  'Event: Fri 20 Nov | 13:00 – 13:15 | Standup'], []),
     ('cal', ['noweather'], ['strip: no icon, "15:30 · Dentist", badge none'], []),
+    # "calendarStyle": "icon": always the icon, or with "calendarIconFreeDays" only while nothing is on for N days
+    ('cal', ['calicon'], ['| calendar, "", badge none'], ['Dentist", badge']),
+    ('cal', ['calicon', 'free=1'], ['no icon, "15:30 · Dentist"'], ['calendar,']),                          # on today
+    ('cal', ['calicon', 'free=1', 'now=2026-11-16T15:45'], ['no icon, "Now · Dentist"'], ['calendar,']),     # ongoing
+    ('cal', ['calicon', 'free=1', 'now=2026-11-16T17:00'], ['| calendar, "", badge none'], ['birthday", badge']),  # next is tomorrow
+    ('cal', ['calicon', 'free=2', 'now=2026-11-16T17:00'], ["no icon, \"Tomorrow · Ana's birthday\""], ['calendar,']),
+    ('cal-empty', ['calicon', 'free=3'], ['| calendar, "", badge none'], ['No events']),  # nothing coming at all
     # Monday 6 July, 08:00: one of each repeat rule; New York is on summer time (09:00 there = 10:00 here)
     ('cal-rules', [], ['no icon, "10:00 · NY sync"', 'Header: July 2026 | Mon 6',
                        'Event: Today | until 18:00 | Conference\nEvent:  | 10:00 – 11:00 | NY sync\n',

@@ -2,7 +2,13 @@
 
 All notable changes to this project. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
-## [1.3.1] - 2026-11-21
+## [1.4.0] - 2026-11-21
+
+A quieter calendar segment.
+
+### Added
+- `"calendarStyle": "icon"` shows a calendar icon on the strip instead of the next event; hovering still opens the month and agenda, clicking still opens the calendar. Switch it from the right-click menu too (**Calendar**).
+- `"calendarIconFreeDays": N` shows that icon only while nothing is on for the next N days, and the next event as soon as something is coming (`0`, the default, = always the icon).
 
 ### Fixed
 - When Taskbar Glance started after Claude Taskbar, the two strips could overlap: Glance told the Claude strip to move while drawing, before its window was shown, and the Claude strip only steps past a visible Glance. Glance now tells it again once it is visible.

@@ -115,6 +115,19 @@ static class Calendar
     /// <summary>The segment's text. An event of today has no legend ("15:30 · Dentist"); otherwise it says when:
     /// "Tomorrow", the weekday while it is still this week ("Thu 10:00 · Standup"), the date after that
     /// ("Nov 26 · Thanksgiving"). "Now · Standup" while it is going on.</summary>
+    /// <summary>The icon instead of the next event: with "calendarStyle": "icon", always, or with
+    /// "calendarIconFreeDays": N only while nothing is on today or the next N - 1 days (an ongoing event counts).
+    /// Looks no further than "calendarDays".</summary>
+    public static bool ShowsIcon()
+    {
+        if (!Settings.CalendarIcon) return false;
+        if (Settings.CalendarIconFreeDays == 0 || !HasData) return true;
+        if (Next() is not { } n) return true;
+        if (n.Ongoing) return false;
+        var today = Now.Date; var day = n.Event.Start.Date < today ? today : n.Event.Start.Date;
+        return (day - today).Days >= Settings.CalendarIconFreeDays;
+    }
+
     public static string StripText()
     {
         if (!HasData) return Failures > 0 ? "–" : "…";
