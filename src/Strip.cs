@@ -417,7 +417,10 @@ static unsafe class Strip
         AppendMenuW(m, 0, Exit, "Exit");
         GetCursorPos(out var pt);
         SetForegroundWindow(Hwnd);
-        int cmd = TrackPopupMenu(m, TPM_RETURNCMD | TPM_RIGHTBUTTON | TPM_BOTTOMALIGN, pt.X, pt.Y, 0, Hwnd, 0);
+        // like a tray menu: its bottom on the taskbar's top edge. Lower, it would overlap the taskbar, which (with the
+        // strip it owns) is drawn above every other window, the menu included
+        GetWindowRect(Hwnd, out var sr);
+        int cmd = TrackPopupMenu(m, TPM_RETURNCMD | TPM_RIGHTBUTTON | TPM_BOTTOMALIGN, pt.X, Math.Min(pt.Y, sr.Top), 0, Hwnd, 0);
         PostMessageW(Hwnd, WM_NULL, 0, 0);
         DestroyMenu(m); // also destroys the submenus
         switch (cmd)
