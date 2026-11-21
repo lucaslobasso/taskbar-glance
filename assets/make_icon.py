@@ -1,5 +1,6 @@
 # Makes the Taskbar Glance icon: the tile of Claude's app icon (shape, dark base, glow) in blue (Claude Taskbar's tile)
-# with a white sun and cloud.
+# with a white sun and cloud, grown so the tile fills ~96% of the frame (Claude's own icon leaves ~8% padding on each
+# side; most taskbar icons, e.g. Zen's, fill the frame).
 # Input: claude.exe's 256 px icon saved as PNG (only its outline is used).
 # Run from the repo root: python assets/make_icon.py claude.png src/app.ico 215 ; python assets/make_icon.py claude.png assets/icon.png 215
 import sys, math, colorsys
@@ -55,6 +56,10 @@ for y in range(bb[1], bb[3]):
         if gp[x, y]: sp[x, y] = round(255 * min(1.0, 0.42 * t + 0.55 * lower * ip[x, y] / 255))
 fill = Image.composite(Image.new('RGBA', (W, W), SHADOW + (255,)), Image.new('RGBA', (W, W), GLYPH), shade)
 im.paste(fill, (0, 0), ImageChops.multiply(glyph, mask))
-im = im.resize((256, 256), Image.LANCZOS)
+FILL = 0.96  # tile size relative to the frame
+tile = im.crop(im.getbbox()); side = round(256 * FILL)
+tile = tile.resize((side, round(side * tile.height / tile.width)), Image.LANCZOS)
+im = Image.new('RGBA', (256, 256), (0, 0, 0, 0))
+im.alpha_composite(tile, ((256 - tile.width) // 2, (256 - tile.height) // 2))
 if out.endswith('.ico'): im.save(out, sizes=[(16,16),(20,20),(24,24),(32,32),(40,40),(48,48),(64,64),(128,128),(256,256)])
 else: im.save(out)

@@ -2,6 +2,11 @@
 
 All notable changes to this project. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.4.2] - 2026-11-21
+
+### Changed
+- Bigger icon: the tile now fills the frame like most taskbar icons (it had ~8% padding on each side).
+
 ## [1.4.1] - 2026-11-21
 
 ### Changed
