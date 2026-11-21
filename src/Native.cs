@@ -68,6 +68,7 @@ static unsafe class Native
     [DllImport("user32.dll", ExactSpelling = true)] public static extern int SetWindowPos(nint h, nint after, int x, int y, int cx, int cy, uint flags);
     [DllImport("user32.dll", ExactSpelling = true)] public static extern nint SetWindowLongPtrW(nint h, int idx, nint v);
     [DllImport("user32.dll", ExactSpelling = true, CharSet = CharSet.Unicode)] public static extern nint FindWindowW(string? cls, string? name);
+    [DllImport("user32.dll", ExactSpelling = true)] public static extern nint GetWindow(nint h, uint cmd);
     [DllImport("user32.dll", ExactSpelling = true, CharSet = CharSet.Unicode)] public static extern nint FindWindowExW(nint parent, nint after, string? cls, string? name);
     [DllImport("user32.dll", ExactSpelling = true)] public static extern int GetWindowRect(nint h, out RECT r);
     [DllImport("user32.dll", ExactSpelling = true)] public static extern int GetClientRect(nint h, out RECT r);
