@@ -112,9 +112,6 @@ static class Calendar
         return later is { } l ? (l, false) : null;
     }
 
-    /// <summary>The segment's text. An event of today has no legend ("15:30 · Dentist"); otherwise it says when:
-    /// "Tomorrow", the weekday while it is still this week ("Thu 10:00 · Standup"), the date after that
-    /// ("Nov 26 · Thanksgiving"). "Now · Standup" while it is going on.</summary>
     /// <summary>The icon instead of the next event: with "calendarStyle": "icon", always, or with
     /// "calendarIconFreeDays": N only while nothing is on today or the next N - 1 days (an ongoing event counts).
     /// With "calendarCutoffDay" (either style) also when the next event is after the next occurrence of that weekday
@@ -132,6 +129,9 @@ static class Calendar
         return Settings.CalendarCutoffDay is { } c && (day - today).Days > ((int)c - (int)today.DayOfWeek + 7) % 7;
     }
 
+    /// <summary>The segment's text. An event of today has no legend ("15:30 · Dentist"); otherwise it says when:
+    /// "Tomorrow", the weekday while it is still this week ("Thu 10:00 · Standup"), the date after that
+    /// ("Nov 26 · Thanksgiving"). "Now · Standup" while it is going on.</summary>
     public static string StripText()
     {
         if (!HasData) return Failures > 0 ? "–" : "…";

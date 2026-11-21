@@ -12,6 +12,7 @@ A quieter calendar segment.
 - `"calendarCutoffDay": "friday"` (a weekday name) shows an event on the strip only if it is on or before the next such day (today counts); later ones show the calendar icon instead. The popup still lists everything. Works with either `calendarStyle`.
 
 ### Fixed
+- The right-click menu showed behind the strip: it opened at the mouse, partly over the taskbar, which is drawn above every other window. It now opens just above the taskbar, like a tray menu.
 - When Taskbar Glance started after Claude Taskbar, the two strips could overlap: Glance told the Claude strip to move while drawing, before its window was shown, and the Claude strip only steps past a visible Glance. Glance now tells it again once it is visible.
 
 ## [1.3.0] - 2026-11-21
