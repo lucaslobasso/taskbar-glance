@@ -2,6 +2,11 @@
 
 All notable changes to this project. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.4.3] - 2026-11-21
+
+### Fixed
+- A window going fullscreen on another monitor (e.g. Alt+Enter in Windows Terminal on a second screen) no longer hides the strip; only fullscreen on the taskbar's own monitor does.
+
 ## [1.4.2] - 2026-11-21
 
 ### Changed
